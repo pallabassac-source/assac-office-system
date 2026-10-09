@@ -141,10 +141,31 @@ JWT_SECRET=assac_production_super_secret_key_2026
 
 ### Where is data stored?
 Docker manages persistent data in two isolated volumes:
-1. `assac_data`: Contains `/app/data/attendance.db` (all employee profiles, attendance records, users, and audit logs).
-2. `assac_uploads`: Contains `/app/uploads/` (all uploaded Excel files and intern documents).
+1. `assac_data` / `DATA_VOLUME_PATH`: Contains `/app/data/attendance.db` (all employee profiles, attendance records, users, and audit logs).
+2. `assac_uploads` / `STORAGE_VOLUME_PATH`: Contains `/app/uploads/` (all uploaded Excel files, forms, and up to 10 GB intern deliverables).
 
-Stopping or rebuilding containers **never deletes your data**.
+### 🚀 Mounting the 1.0 TB `/data` Partition (Production IMS Server)
+By default, standard named volumes reside in `/var/lib/docker/volumes/` on the OS root partition (`/dev/mapper/localhost--vg-root`, ~208 GB).
+To use the high-capacity **1.0 TB dedicated data volume** (`/dev/mapper/vgdata-data` mounted at `/data` with 1017 GB available):
+
+1. **Create directories on the 1.0 TB mount**:
+```bash
+mkdir -p /data/uploads /data/attendance_db
+chmod -R 777 /data/uploads /data/attendance_db
+```
+
+2. **Configure `.env`**:
+```bash
+STORAGE_VOLUME_PATH=/data/uploads
+DATA_VOLUME_PATH=/data/attendance_db
+```
+
+3. **Restart Docker Containers**:
+```bash
+docker compose down
+docker compose up -d
+```
+Once restarted, the system stores all files and large uploads directly on `/dev/mapper/vgdata-data`, and the storage status gauge will report **1.0 TB Capacity with 1017 GB Free**.
 
 ### How to backup?
 Run `docker-backup.bat` or `.\docker-manage.ps1 backup`.

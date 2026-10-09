@@ -93,10 +93,14 @@ class StorageService {
       const usedBytes = totalBytes - freeBytes;
       const percentUsed = totalBytes > 0 ? ((usedBytes / totalBytes) * 100).toFixed(1) : '0.0';
 
+      // Detect if this is the dedicated /data high-capacity volume
+      const isDataMount = this.rootDir.startsWith('/data') || totalBytes > 500 * 1024 * 1024 * 1024;
+      const displayPath = isDataMount ? '/data/uploads' : this.rootDir;
+
       return {
         success: true,
-        storage_path: this.rootDir,
-        is_data_mount: this.rootDir.startsWith('/data'),
+        storage_path: displayPath,
+        is_data_mount: isDataMount,
         total_bytes: totalBytes,
         free_bytes: freeBytes,
         used_bytes: usedBytes,
