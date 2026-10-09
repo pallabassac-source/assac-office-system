@@ -15,7 +15,7 @@ class AiController {
   }
 
   /**
-   * Check Cloudflare Workers AI connection status
+   * Check ASSAC Neural Engine connection status
    * GET /api/ai/status
    */
   async getStatus(req, res) {

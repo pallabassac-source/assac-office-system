@@ -229,7 +229,7 @@ router.get('/holidays', (req, res) => {
   });
 });
 // ==========================================
-// 10. CLOUDFLARE WORKERS AI PLAYGROUND (OPEN WEBUI)
+// 10. ASSAC ENTERPRISE NEURAL AI (OPEN WEBUI)
 // ==========================================
 router.get('/ai/models', (req, res) => aiController.getModels(req, res));
 router.get('/ai/status', (req, res) => aiController.getStatus(req, res));

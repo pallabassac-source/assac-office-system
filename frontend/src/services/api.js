@@ -225,7 +225,7 @@ export const getEmailStatusApi = async () => {
 };
 
 // ==========================================
-// 5. CLOUDFLARE WORKERS AI PLAYGROUND (OPEN WEBUI)
+// 5. ASSAC ENTERPRISE NEURAL AI (OPEN WEBUI)
 // ==========================================
 export const getAiModels = async () => {
   const res = await api.get('/ai/models');

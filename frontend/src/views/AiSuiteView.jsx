@@ -42,11 +42,13 @@ import {
   AlertCircle
 } from 'lucide-react';
 
-const DEFAULT_SYSTEM_PROMPT = `You are the ASSAC Enterprise Neural Assistant, an advanced AI for the Assam State Space Application Centre (ASSAC). You assist scientific officers, technical analysts, administrative staff, and intern scholars.
-Your expertise includes:
-1. Remote Sensing & GIS analysis (satellite data, NDVI, GeoTIFF, QGIS, ArcGIS, python spatial libraries).
+const DEFAULT_SYSTEM_PROMPT = `You are ASSAC-LLM (Assam State Space Application Centre Neural AI), created and developed by Pallab Jyoti Gohain from Morigaon.
+You assist scientific officers, technical analysts, administrative staff, and intern scholars across ASSAC.
+Your core capabilities include:
+1. Remote Sensing & GIS analysis (satellite data, NDVI calculations, GeoTIFF processing, QGIS, ArcGIS, python spatial libraries).
 2. Official Assam State governance (memorandums, administrative circulars, biometric attendance rules).
 3. Software engineering & data pipelines (Python, Node.js, SQL, REST APIs, bash scripting).
+When asked about your creator, developer, or origin, clearly state that you were created and developed by Pallab Jyoti Gohain from Morigaon.
 Provide direct, highly accurate, structured, and helpful responses. Use markdown for code blocks and formatted tables.`;
 
 const PROMPT_SUGGESTIONS = [
@@ -90,10 +92,23 @@ export default function AiSuiteView() {
   const [activeMode, setActiveMode] = useState('chat'); // 'chat' | 'image' | 'presentation'
   const [settingsModalOpen, setSettingsModalOpen] = useState(false);
 
-  // Cloudflare Model State
+  // Neural AI Model State
   const [availableModels, setAvailableModels] = useState([]);
-  const [selectedModel, setSelectedModel] = useState('@cf/meta/llama-3.1-8b-instruct');
-  const [cfStatus, setCfStatus] = useState({ online: true, provider: 'Cloudflare Workers AI' });
+  const [selectedModel, setSelectedModel] = useState('assac-llm-1.0');
+  const [aiStatus, setAiStatus] = useState({ online: true, engine: 'ASSAC Enterprise Neural AI', creator: 'Pallab Jyoti Gohain, Morigaon' });
+
+  // Map model IDs to branded enterprise names
+  const getModelDisplayName = (modelId) => {
+    const found = availableModels.find(m => m.id === modelId);
+    if (found) return found.displayName || found.name;
+    if (modelId === 'assac-llm-1.0' || modelId === '@cf/meta/llama-3.1-8b-instruct') return 'ASSAC-LLM 1.0';
+    if (modelId === 'assac-llm-fast' || modelId === '@cf/meta/llama-3-8b-instruct') return 'ASSAC-LLM Fast';
+    if (modelId === 'assac-reasoning-core' || modelId === '@cf/mistral/mistral-7b-instruct-v0.1') return 'ASSAC-Reasoning Core';
+    if (modelId === 'assac-code-spatial' || modelId === '@cf/qwen/qwen1.5-7b-chat-awq') return 'ASSAC-Code & Spatial';
+    if (modelId === 'assac-math-analytics' || modelId === '@cf/deepseek-ai/deepseek-math-7b-instruct') return 'ASSAC-Math & Analytics';
+    if (modelId === 'assac-vision-engine' || modelId === '@cf/stabilityai/stable-diffusion-xl-base-1.0') return 'ASSAC-Vision Diffusion Engine';
+    return 'ASSAC-LLM';
+  };
 
   // Chat Parameters
   const [systemPrompt, setSystemPrompt] = useState(DEFAULT_SYSTEM_PROMPT);
@@ -175,7 +190,7 @@ export default function AiSuiteView() {
 
     getAiStatus()
       .then(res => {
-        if (res.success && res.data) setCfStatus(res.data);
+        if (res.success && res.data) setAiStatus(res.data);
       })
       .catch(() => {});
   }, []);
@@ -298,7 +313,7 @@ export default function AiSuiteView() {
         id: `msg-${Date.now()}-err`,
         role: 'assistant',
         isError: true,
-        content: `Error: Unable to connect to Cloudflare Workers AI (${err.message}). Verify API credentials and network connection.`,
+        content: `Error: Unable to connect to ASSAC Neural Engine (${err.message}). Verify server status and network connection.`,
         model: selectedModel,
         timestamp: new Date().toLocaleTimeString('en-US', { timeZone: 'Asia/Kolkata', hour: '2-digit', minute: '2-digit', hour12: true })
       };
@@ -347,7 +362,7 @@ export default function AiSuiteView() {
     try {
       const res = await generateAiImage({
         prompt: imagePrompt.trim(),
-        model: '@cf/stabilityai/stable-diffusion-xl-base-1.0',
+        model: 'assac-vision-engine',
         style: imageStyle
       });
 
@@ -425,8 +440,8 @@ export default function AiSuiteView() {
             <div className="truncate">
               <div className="flex items-center gap-1.5">
                 <span className="font-extrabold text-xs text-white tracking-tight">Open WebUI</span>
-                <span className="px-1.5 py-0.2 rounded text-[9px] font-mono font-bold bg-cyan-950 text-cyan-300 border border-cyan-800">
-                  CF AI
+                <span className="px-1.5 py-0.2 rounded text-[9px] font-mono font-bold bg-indigo-950 text-indigo-300 border border-indigo-800">
+                  ASSAC AI
                 </span>
               </div>
               <p className="text-[10px] text-slate-400 font-mono truncate">ASSAC Neural Hub</p>
@@ -510,13 +525,13 @@ export default function AiSuiteView() {
           })}
         </div>
 
-        {/* Sidebar Footer: Cloudflare Status & Parameters */}
+        {/* Sidebar Footer: Engine Status & Parameters */}
         <div className="p-3 border-t border-slate-800/80 bg-[#11161d] space-y-2">
-          {/* Cloudflare Workers AI Connectivity Pill */}
+          {/* Neural Engine Connectivity Pill */}
           <div className="flex items-center justify-between text-[11px] px-2.5 py-1.5 rounded-lg bg-[#0d1117] border border-slate-800">
             <div className="flex items-center gap-1.5">
               <span className="h-2 w-2 rounded-full bg-emerald-400 animate-pulse"></span>
-              <span className="font-semibold text-slate-300">Cloudflare Workers AI</span>
+              <span className="font-semibold text-slate-300">ASSAC Neural Engine</span>
             </div>
             <span className="font-mono text-[10px] text-emerald-400">Online</span>
           </div>
@@ -569,21 +584,33 @@ export default function AiSuiteView() {
                 onChange={(e) => setSelectedModel(e.target.value)}
                 className="bg-transparent font-bold text-white focus:outline-none cursor-pointer text-xs pr-1"
               >
-                <option value="@cf/meta/llama-3.1-8b-instruct" className="bg-[#161b22] text-white">
-                  Meta Llama 3.1 8B Instruct (Default)
-                </option>
-                <option value="@cf/meta/llama-3-8b-instruct" className="bg-[#161b22] text-white">
-                  Meta Llama 3 8B Instruct
-                </option>
-                <option value="@cf/mistral/mistral-7b-instruct-v0.1" className="bg-[#161b22] text-white">
-                  Mistral 7B Instruct v0.1
-                </option>
-                <option value="@cf/qwen/qwen1.5-7b-chat-awq" className="bg-[#161b22] text-white">
-                  Qwen 1.5 7B Chat
-                </option>
-                <option value="@cf/deepseek-ai/deepseek-math-7b-instruct" className="bg-[#161b22] text-white">
-                  DeepSeek Math 7B
-                </option>
+                {availableModels.length > 0 ? (
+                  availableModels
+                    .filter(m => m.id !== '@cf/stabilityai/stable-diffusion-xl-base-1.0')
+                    .map(m => (
+                      <option key={m.id} value={m.id} className="bg-[#161b22] text-white">
+                        {m.name || m.displayName}
+                      </option>
+                    ))
+                ) : (
+                  <>
+                    <option value="assac-llm-1.0" className="bg-[#161b22] text-white">
+                      ASSAC-LLM 1.0 (Flagship)
+                    </option>
+                    <option value="assac-llm-fast" className="bg-[#161b22] text-white">
+                      ASSAC-LLM Fast
+                    </option>
+                    <option value="assac-reasoning-core" className="bg-[#161b22] text-white">
+                      ASSAC-Reasoning Core
+                    </option>
+                    <option value="assac-code-spatial" className="bg-[#161b22] text-white">
+                      ASSAC-Code &amp; Spatial
+                    </option>
+                    <option value="assac-math-analytics" className="bg-[#161b22] text-white">
+                      ASSAC-Math &amp; Analytics
+                    </option>
+                  </>
+                )}
               </select>
             </div>
           </div>
@@ -662,7 +689,7 @@ export default function AiSuiteView() {
                       How can I help you today?
                     </h2>
                     <p className="text-xs md:text-sm text-slate-400 max-w-lg mx-auto">
-                      Connected to <span className="text-indigo-400 font-semibold">Cloudflare Workers AI</span> running <span className="font-mono text-cyan-300">Llama 3.1 8B Instruct</span>. Direct assistance for Assam State Space Application Centre.
+                      Powered by <span className="text-indigo-400 font-semibold">ASSAC-LLM</span> developed by <span className="font-semibold text-cyan-300">Pallab Jyoti Gohain from Morigaon</span>. Dedicated neural intelligence for Assam State Space Application Centre.
                     </p>
                   </div>
 
@@ -723,7 +750,7 @@ export default function AiSuiteView() {
                         {!isUser && !msg.isError && (
                           <>
                             <span>•</span>
-                            <span className="text-slate-400">{msg.model?.split('/').pop() || 'Llama 3.1'}</span>
+                            <span className="text-slate-400">{getModelDisplayName(msg.model)}</span>
                             <button
                               onClick={() => handleCopyMessage(msg.id, msg.content)}
                               className="p-1 hover:text-slate-300 rounded transition-colors cursor-pointer"
@@ -758,7 +785,7 @@ export default function AiSuiteView() {
                   <div className="p-4 rounded-2xl bg-[#161b22] border border-slate-800 text-slate-300 text-xs flex items-center gap-2.5 shadow-2xs">
                     <RefreshCw className="h-3.5 w-3.5 animate-spin text-cyan-400" />
                     <span className="font-mono text-slate-400">
-                      Cloudflare Workers AI processing with {selectedModel.split('/').pop()}...
+                      ASSAC Neural Engine processing with {getModelDisplayName(selectedModel)}...
                     </span>
                   </div>
                 </div>
@@ -776,16 +803,16 @@ export default function AiSuiteView() {
                   value={inputMessage}
                   onChange={handleInputChange}
                   onKeyDown={handleKeyDown}
-                  placeholder={`Message ${selectedModel.split('/').pop()} on Cloudflare Workers AI... (Shift+Enter for new line)`}
+                  placeholder={`Message ${getModelDisplayName(selectedModel)}... (Shift+Enter for new line)`}
                   className="w-full bg-transparent text-slate-100 placeholder-slate-500 text-xs sm:text-sm p-2 focus:outline-none resize-none max-h-48 overflow-y-auto"
                 />
 
                 <div className="flex items-center justify-between pt-1 border-t border-slate-800/60 px-1">
                   <div className="flex items-center gap-1.5 text-[11px] text-slate-400 font-mono">
                     <span className="px-1.5 py-0.5 rounded bg-[#0d1117] border border-slate-800 text-slate-300 text-[10px]">
-                      {selectedModel.split('/').pop()}
+                      {getModelDisplayName(selectedModel)}
                     </span>
-                    <span className="hidden sm:inline">• Cloudflare Token Active</span>
+                    <span className="hidden sm:inline">• Developed by Pallab Jyoti Gohain, Morigaon</span>
                   </div>
 
                   <button
@@ -803,7 +830,7 @@ export default function AiSuiteView() {
               </div>
 
               <p className="text-[10px] text-slate-500 text-center mt-2 font-mono">
-                ASSAC Intranet AI Playground • Cloudflare Workers AI (Account: {cfStatus.accountId || 'a5b225b1...'})
+                ASSAC Enterprise Neural AI Suite • Developed by Pallab Jyoti Gohain, Morigaon • ASSAC Intranet
               </p>
             </div>
 
@@ -822,8 +849,8 @@ export default function AiSuiteView() {
                     <ImageIcon className="h-4 w-4" />
                   </div>
                   <div>
-                    <h3 className="text-sm font-extrabold text-white">Cloudflare SDXL Image Studio</h3>
-                    <p className="text-xs text-slate-400 font-mono">@cf/stabilityai/stable-diffusion-xl-base-1.0</p>
+                    <h3 className="text-sm font-extrabold text-white">ASSAC-Vision Diffusion Studio</h3>
+                    <p className="text-xs text-slate-400 font-mono">ASSAC-Vision Engine • 1024x1024 Native Visual Synthesis</p>
                   </div>
                 </div>
                 <span className="px-2 py-0.5 rounded-full text-[10px] font-mono font-bold bg-cyan-950 text-cyan-300 border border-cyan-800">
@@ -879,7 +906,7 @@ export default function AiSuiteView() {
                   ) : (
                     <>
                       <Sparkles className="h-4 w-4" />
-                      <span>Synthesize with SDXL</span>
+                      <span>Synthesize with ASSAC-Vision</span>
                     </>
                   )}
                 </button>
@@ -944,8 +971,8 @@ export default function AiSuiteView() {
                     <Presentation className="h-4 w-4" />
                   </div>
                   <div>
-                    <h3 className="text-sm font-extrabold text-white">AI Executive Slide Deck Generator</h3>
-                    <p className="text-xs text-slate-400 font-mono">Structured JSON Output via Llama 3.1 8B</p>
+                    <h3 className="text-sm font-extrabold text-white">ASSAC Executive Slide Deck Generator</h3>
+                    <p className="text-xs text-slate-400 font-mono">Structured JSON Output via ASSAC-LLM</p>
                   </div>
                 </div>
               </div>

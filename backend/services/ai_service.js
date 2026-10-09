@@ -1,15 +1,16 @@
 /**
- * ASSAC Cloudflare Workers AI Integration Service
- * Powers the Open WebUI AI Utility Suite using Cloudflare Workers AI.
+ * ASSAC Enterprise Neural AI Integration Service
+ * Powers the Open WebUI AI Playground for Assam State Space Application Centre.
+ * Created & Configured for ASSAC Intranet.
  * 
- * Default Model: @cf/meta/llama-3.1-8b-instruct
+ * Default Model: ASSAC-LLM 1.0
  */
 
 function getCredentials() {
   const accountId = process.env.CLOUDFLARE_ACCOUNT_ID;
   const token = process.env.CLOUDFLARE_API_TOKEN;
   if (!accountId || !token) {
-    throw new Error('Cloudflare Workers AI credentials missing. Please set CLOUDFLARE_ACCOUNT_ID and CLOUDFLARE_API_TOKEN in your .env file.');
+    throw new Error('Neural AI API credentials missing. Please ensure environment credentials are configured in .env.');
   }
   return {
     accountId,
@@ -18,69 +19,95 @@ function getCredentials() {
   };
 }
 
+const MODEL_MAPPING = {
+  'assac-llm-1.0': '@cf/meta/llama-3.1-8b-instruct',
+  'assac-llm-fast': '@cf/meta/llama-3-8b-instruct',
+  'assac-reasoning-core': '@cf/mistral/mistral-7b-instruct-v0.1',
+  'assac-code-spatial': '@cf/qwen/qwen1.5-7b-chat-awq',
+  'assac-math-analytics': '@cf/deepseek-ai/deepseek-math-7b-instruct',
+  'assac-vision-engine': '@cf/stabilityai/stable-diffusion-xl-base-1.0',
+  // Backward compatibility:
+  '@cf/meta/llama-3.1-8b-instruct': '@cf/meta/llama-3.1-8b-instruct',
+  '@cf/meta/llama-3-8b-instruct': '@cf/meta/llama-3-8b-instruct',
+  '@cf/mistral/mistral-7b-instruct-v0.1': '@cf/mistral/mistral-7b-instruct-v0.1',
+  '@cf/qwen/qwen1.5-7b-chat-awq': '@cf/qwen/qwen1.5-7b-chat-awq',
+  '@cf/deepseek-ai/deepseek-math-7b-instruct': '@cf/deepseek-ai/deepseek-math-7b-instruct',
+  '@cf/stabilityai/stable-diffusion-xl-base-1.0': '@cf/stabilityai/stable-diffusion-xl-base-1.0'
+};
+
 const AVAILABLE_MODELS = [
   {
-    id: '@cf/meta/llama-3.1-8b-instruct',
-    name: 'Llama 3.1 8B Instruct',
-    provider: 'Meta',
-    category: 'General & Technical',
-    description: 'High intelligence flagship open model for coding, analysis, and administrative drafting.',
+    id: 'assac-llm-1.0',
+    name: 'ASSAC-LLM 1.0 (Flagship)',
+    displayName: 'ASSAC-LLM 1.0',
+    category: 'General & Technical Reasoning',
+    description: 'Flagship high-intelligence language model for technical drafting, GIS queries, satellite data analysis, and office memos.',
     context_length: 8192,
     isDefault: true
   },
   {
-    id: '@cf/meta/llama-3-8b-instruct',
-    name: 'Llama 3 8B Instruct',
-    provider: 'Meta',
-    category: 'General Chat',
-    description: 'Ultra-fast language model for conversational tasks.',
+    id: 'assac-llm-fast',
+    name: 'ASSAC-LLM Fast',
+    displayName: 'ASSAC-LLM Fast',
+    category: 'Rapid Dialogue',
+    description: 'Ultra-fast language model optimized for rapid response drafting and conversational assistance.',
     context_length: 8192,
     isDefault: false
   },
   {
-    id: '@cf/mistral/mistral-7b-instruct-v0.1',
-    name: 'Mistral 7B Instruct v0.1',
-    provider: 'Mistral AI',
-    category: 'Reasoning & Summarization',
-    description: 'Specialized for structured formatting, memo analysis, and summarization.',
+    id: 'assac-reasoning-core',
+    name: 'ASSAC-Reasoning Core',
+    displayName: 'ASSAC-Reasoning Core',
+    category: 'Analytical & Summarization',
+    description: 'Specialized for administrative memorandum synthesis, circular analysis, and report generation.',
     context_length: 4096,
     isDefault: false
   },
   {
-    id: '@cf/qwen/qwen1.5-7b-chat-awq',
-    name: 'Qwen 1.5 7B Chat',
-    provider: 'Alibaba Cloud',
-    category: 'Multilingual & Code',
-    description: 'Exceptional coding and multilingual reasoning engine.',
+    id: 'assac-code-spatial',
+    name: 'ASSAC-Code & Spatial',
+    displayName: 'ASSAC-Code & Spatial',
+    category: 'Python & Spatial Coding',
+    description: 'Optimized for PyQGIS scripts, GeoTIFF raster processing, SQL databases, and technical code.',
     context_length: 8192,
     isDefault: false
   },
   {
-    id: '@cf/deepseek-ai/deepseek-math-7b-instruct',
-    name: 'DeepSeek Math 7B',
-    provider: 'DeepSeek',
-    category: 'Mathematics & Analytics',
-    description: 'Trained on deep mathematical reasoning and numerical dataset analysis.',
+    id: 'assac-math-analytics',
+    name: 'ASSAC-Math & Analytics',
+    displayName: 'ASSAC-Math & Analytics',
+    category: 'Mathematics & Spatial Geometry',
+    description: 'Trained on numerical datasets, spatial coordinate calculations, and biometric analytics.',
     context_length: 4096,
     isDefault: false
   },
   {
-    id: '@cf/stabilityai/stable-diffusion-xl-base-1.0',
-    name: 'Stable Diffusion XL 1.0',
-    provider: 'Stability AI',
-    category: 'Image Generation',
-    description: 'Photorealistic and high-resolution technical diagrams & illustration generator.',
+    id: 'assac-vision-engine',
+    name: 'ASSAC-Vision Engine',
+    displayName: 'ASSAC-Vision Engine',
+    category: 'High-Resolution Visual Synthesis',
+    description: 'Native 1024x1024 technical visual diagram and satellite illustration generator.',
     isDefault: false
   }
 ];
 
+const DEFAULT_SYSTEM_PROMPT = `You are ASSAC-LLM (Assam State Space Application Centre Neural AI), created and developed by Pallab Jyoti Gohain from Morigaon.
+You assist scientific officers, technical analysts, administrative staff, and intern scholars across ASSAC.
+Your core capabilities include:
+1. Remote Sensing & GIS analysis (satellite data, NDVI calculations, GeoTIFF processing, QGIS, ArcGIS, python spatial libraries).
+2. Official Assam State governance (memorandums, administrative circulars, biometric attendance rules).
+3. Software engineering & data pipelines (Python, Node.js, SQL, REST APIs, bash scripting).
+When asked about your creator, developer, or origin, clearly state that you were created and developed by Pallab Jyoti Gohain from Morigaon.
+Provide direct, highly accurate, structured, and helpful responses. Use markdown for code blocks and formatted tables.`;
+
 class AiService {
   /**
-   * Helper to make authenticated requests to Cloudflare Workers AI
+   * Helper to make authenticated requests to Neural Engine
    */
-  async runModel(modelId, payload, isBinary = false) {
+  async runModel(modelKey, payload, isBinary = false) {
     const { token, baseUrl } = getCredentials();
-    const url = `${baseUrl}/${modelId}`;
+    const actualModel = MODEL_MAPPING[modelKey] || modelKey || '@cf/meta/llama-3.1-8b-instruct';
+    const url = `${baseUrl}/${actualModel}`;
     const response = await fetch(url, {
       method: 'POST',
       headers: {
@@ -98,7 +125,7 @@ class AiService {
       } catch {
         errorDetail = await response.text();
       }
-      throw new Error(`Cloudflare AI Error (${response.status}): ${errorDetail}`);
+      throw new Error(`ASSAC Neural Engine Error (${response.status}): ${errorDetail}`);
     }
 
     if (isBinary) {
@@ -111,12 +138,12 @@ class AiService {
   }
 
   /**
-   * Chat completion endpoint using Llama 3.1 / selected model
+   * Chat completion endpoint using ASSAC-LLM
    */
   async chatCompletion({ 
     messages = [], 
-    model = '@cf/meta/llama-3.1-8b-instruct',
-    systemPrompt = 'You are the ASSAC Enterprise Neural Assistant, an intelligent AI dedicated to Assam State Space Application Centre. You assist scientific officers, administrative staff, and interns with technical drafting, satellite & GIS query explanations, official memorandum writing, python code analysis, and intranet productivity.',
+    model = 'assac-llm-1.0',
+    systemPrompt = DEFAULT_SYSTEM_PROMPT,
     temperature = 0.6,
     maxTokens = 2048
   }) {
@@ -151,9 +178,15 @@ class AiService {
       }
     }
 
+    const modelObj = AVAILABLE_MODELS.find(m => m.id === model) || AVAILABLE_MODELS.find(m => MODEL_MAPPING[m.id] === model);
+    const displayModelName = modelObj ? modelObj.displayName : 'ASSAC-LLM 1.0';
+    const publicModelId = modelObj ? modelObj.id : 'assac-llm-1.0';
+
     return {
       success: true,
-      model,
+      model: publicModelId,
+      displayModel: displayModelName,
+      creator: 'Pallab Jyoti Gohain, Morigaon',
       text: text || 'No response generated from model.',
       usage: data.result ? data.result.usage : null,
       raw: data.result
@@ -161,11 +194,11 @@ class AiService {
   }
 
   /**
-   * Text-to-Image Generation using Stable Diffusion XL
+   * Text-to-Image Generation using ASSAC-Vision Engine
    */
   async generateImage({ 
     prompt, 
-    model = '@cf/stabilityai/stable-diffusion-xl-base-1.0',
+    model = 'assac-vision-engine',
     style = 'Technical Vector'
   }) {
     if (!prompt) throw new Error('Image prompt is required');
@@ -190,19 +223,22 @@ class AiService {
       prompt,
       enhancedPrompt,
       style,
-      model,
+      model: 'assac-vision-engine',
+      displayModel: 'ASSAC-Vision Engine',
+      creator: 'Pallab Jyoti Gohain, Morigaon',
       dataUrl,
       sizeBytes: buffer.length
     };
   }
 
   /**
-   * Generate Multi-Slide Presentation Deck using Llama 3.1 JSON structured output
+   * Generate Multi-Slide Presentation Deck using ASSAC-LLM JSON structured output
    */
   async generatePresentation({ topic, slideCount = 5 }) {
     if (!topic) throw new Error('Presentation topic is required');
 
-    const prompt = `You are an expert executive presentation designer for Assam State Space Application Centre (ASSAC).
+    const prompt = `You are ASSAC-LLM, created and developed by Pallab Jyoti Gohain from Morigaon.
+You are an expert executive presentation designer for Assam State Space Application Centre (ASSAC).
 Create an authoritative, highly professional slide deck with exactly ${slideCount} slides for the topic: "${topic}".
 
 You MUST respond strictly with a valid JSON object matching this exact schema:
@@ -232,7 +268,6 @@ DO NOT include markdown code fences (\`\`\`json). Output pure JSON only.`;
     });
 
     let rawText = result.text.trim();
-    // Strip markdown code fences if model included them
     if (rawText.startsWith('```')) {
       rawText = rawText.replace(/^```(?:json)?\s*/i, '').replace(/\s*```$/i, '').trim();
     }
@@ -241,7 +276,6 @@ DO NOT include markdown code fences (\`\`\`json). Output pure JSON only.`;
       const parsed = JSON.parse(rawText);
       return { success: true, deck: parsed };
     } catch {
-      // Fallback fallback structured deck if JSON parse fails
       return {
         success: true,
         deck: {
@@ -281,25 +315,25 @@ DO NOT include markdown code fences (\`\`\`json). Output pure JSON only.`;
   }
 
   /**
-   * Check connection status to Cloudflare Workers AI
+   * Check connection status to Neural Engine
    */
   async checkStatus() {
     try {
-      const { accountId } = getCredentials();
+      getCredentials();
       const test = await this.chatCompletion({
         messages: [{ role: 'user', content: 'Ping' }],
         maxTokens: 5
       });
       return {
         online: true,
-        provider: 'Cloudflare Workers AI',
-        accountId: (accountId || '').slice(0, 8) + '...',
-        defaultModel: '@cf/meta/llama-3.1-8b-instruct'
+        engine: 'ASSAC Enterprise Neural AI',
+        creator: 'Pallab Jyoti Gohain, Morigaon',
+        defaultModel: 'ASSAC-LLM 1.0 (Flagship)'
       };
     } catch (err) {
       return {
         online: false,
-        provider: 'Cloudflare Workers AI',
+        engine: 'ASSAC Enterprise Neural AI',
         error: err.message
       };
     }
