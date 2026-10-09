@@ -153,8 +153,8 @@ export default function OfficeAdminDashboardView({ month, year, selectedMonth, s
       <div className="space-y-6">
         {activeTab === 'dashboard' && (
           <DashboardView
-            month={month || selectedMonth || 5}
-            year={year || selectedYear || 2026}
+            month={month || selectedMonth || (new Date().getMonth() + 1)}
+            year={year || selectedYear || new Date().getFullYear()}
             onNavigateToRecords={() => setActiveTab('records')}
             onNavigateToUpload={() => setActiveTab('upload')}
           />
@@ -162,8 +162,8 @@ export default function OfficeAdminDashboardView({ month, year, selectedMonth, s
 
         {activeTab === 'records' && (
           <AttendanceRecordsView
-            month={month || selectedMonth || 5}
-            year={year || selectedYear || 2026}
+            month={month || selectedMonth || (new Date().getMonth() + 1)}
+            year={year || selectedYear || new Date().getFullYear()}
           />
         )}
 
@@ -190,15 +190,15 @@ export default function OfficeAdminDashboardView({ month, year, selectedMonth, s
 
         {activeTab === 'analytics' && (
           <AnalyticsView
-            month={month || selectedMonth || 5}
-            year={year || selectedYear || 2026}
+            month={month || selectedMonth || (new Date().getMonth() + 1)}
+            year={year || selectedYear || new Date().getFullYear()}
           />
         )}
 
         {activeTab === 'exports' && (
           <ExportsView
-            month={month || selectedMonth || 5}
-            year={year || selectedYear || 2026}
+            month={month || selectedMonth || (new Date().getMonth() + 1)}
+            year={year || selectedYear || new Date().getFullYear()}
           />
         )}
 

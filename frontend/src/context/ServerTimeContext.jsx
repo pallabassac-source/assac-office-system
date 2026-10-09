@@ -23,6 +23,7 @@ export function ServerTimeProvider({ children }) {
         offsetRef.current = offset;
         setServerOffset(offset);
         setIsSynced(true);
+        setNowDate(new Date(Date.now() + offset));
       }
     } catch (err) {
       console.warn('[ServerTime] Sync failed, falling back to local clock until reconnected:', err);
@@ -68,6 +69,8 @@ export function ServerTimeProvider({ children }) {
     <ServerTimeContext.Provider value={{
       serverDate: nowDate,
       getServerDate,
+      serverMonth: nowDate.getMonth() + 1,
+      serverYear: nowDate.getFullYear(),
       serverOffset,
       isSynced,
       timeString12h,
@@ -87,6 +90,8 @@ export function useServerTime() {
     return {
       serverDate: now,
       getServerDate: () => new Date(),
+      serverMonth: now.getMonth() + 1,
+      serverYear: now.getFullYear(),
       serverOffset: 0,
       isSynced: false,
       timeString12h: now.toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit', second: '2-digit', hour12: true }),

@@ -34,8 +34,9 @@ export default function ExcelUploadView({ onIngestSuccess }) {
   const [uploading, setUploading] = useState(false);
   const [ingesting, setIngesting] = useState(false);
   const [parsedPayload, setParsedPayload] = useState(null);
-  const [targetMonth, setTargetMonth] = useState(5);
-  const [targetYear, setTargetYear] = useState(2026);
+  const now = new Date();
+  const [targetMonth, setTargetMonth] = useState(now.getMonth() + 1);
+  const [targetYear, setTargetYear] = useState(now.getFullYear());
   const [error, setError] = useState(null);
   const [successMessage, setSuccessMessage] = useState(null);
   const [availablePeriods, setAvailablePeriods] = useState([]);

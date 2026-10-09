@@ -1,6 +1,7 @@
 const ExcelJS = require('exceljs');
 const PDFDocument = require('pdfkit');
 const attendanceRepository = require('../repositories/attendance_repository');
+const timeService = require('./time_service');
 
 function formatTime12Hour(timeStr) {
   if (!timeStr || timeStr === '00:00' || timeStr === '00:00:00' || timeStr === '0') return '';
@@ -26,7 +27,10 @@ class ExportService {
    * Export Monthly Attendance Register matching expected ASSAC format (.xlsx)
    * with soft pastel status styling and compact cell dimensions.
    */
-  async generateMonthlyExcel(month = 5, year = 2026, department = null) {
+  async generateMonthlyExcel(month = null, year = null, department = null) {
+    const serverNow = timeService.getServerDate();
+    month = month || (serverNow.getMonth() + 1);
+    year = year || serverNow.getFullYear();
     const matrixResult = await attendanceRepository.getDetailedAttendanceMatrix(month, year, department);
     const employees = matrixResult.employees || [];
     const periodInfo = matrixResult.period || {};
@@ -213,7 +217,10 @@ class ExportService {
   /**
    * Export Configurable PDF Summary Report
    */
-  async generateMonthlyPDF(month = 5, year = 2026, department = null, options = {}) {
+  async generateMonthlyPDF(month = null, year = null, department = null, options = {}) {
+    const serverNow = timeService.getServerDate();
+    month = month || (serverNow.getMonth() + 1);
+    year = year || serverNow.getFullYear();
     const {
       includeStats = true,
       includeWorkHours = true,

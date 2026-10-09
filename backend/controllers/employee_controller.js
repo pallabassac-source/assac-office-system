@@ -1,5 +1,6 @@
 const employeeRepository = require('../repositories/employee_repository');
 const attendanceRepository = require('../repositories/attendance_repository');
+const timeService = require('../services/time_service');
 
 class EmployeeController {
   async getEmployees(req, res) {
@@ -18,9 +19,10 @@ class EmployeeController {
 
   async getEmployeeDetail(req, res) {
     try {
+      const serverNow = timeService.getServerDate();
       const id = req.params.id;
-      const month = req.query.month ? parseInt(req.query.month, 10) : 5;
-      const year = req.query.year ? parseInt(req.query.year, 10) : 2026;
+      const month = req.query.month ? parseInt(req.query.month, 10) : (serverNow.getMonth() + 1);
+      const year = req.query.year ? parseInt(req.query.year, 10) : serverNow.getFullYear();
 
       const detail = await attendanceRepository.getEmployeeDetail(id, month, year);
       if (detail && detail.employee) {

@@ -29,7 +29,10 @@ const MONTH_NAMES = [
   'July', 'August', 'September', 'October', 'November', 'December'
 ];
 
-export default function ExportsView({ month: initialMonth = 5, year: initialYear = 2026 }) {
+export default function ExportsView({ 
+  month: initialMonth = (new Date().getMonth() + 1), 
+  year: initialYear = new Date().getFullYear() 
+}) {
   const { user } = useAuth();
   const [departments, setDepartments] = useState([]);
   const [selectedDept, setSelectedDept] = useState('ALL');

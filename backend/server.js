@@ -5,6 +5,7 @@ const fs = require('fs');
 const apiRoutes = require('./routes/api');
 const excelParser = require('./services/excel_parser');
 const attendanceRepository = require('./repositories/attendance_repository');
+const timeService = require('./services/time_service');
 
 const app = express();
 const PORT = process.env.PORT || 5000;
@@ -34,25 +35,47 @@ app.use('/api', apiRoutes);
 
 // Health & Time Sync Check
 app.get(['/health', '/api/health'], (req, res) => {
+  const timePayload = timeService.getTimePayload();
   res.json({ 
     status: 'OK', 
     message: 'Enterprise Attendance Backend Operational', 
-    timestamp_12h: new Date().toLocaleString('en-US', { month: 'numeric', day: 'numeric', year: 'numeric', hour: '2-digit', minute: '2-digit', second: '2-digit', hour12: true }),
-    timestamp_iso: new Date().toISOString() 
+    timestamp_12h: timePayload.timestamp_12h,
+    timestamp_iso: timePayload.timestamp_iso 
   });
 });
 
 app.get(['/time', '/api/time'], (req, res) => {
-  const now = new Date();
-  res.json({
-    success: true,
-    timestamp: now.getTime(),
-    timestamp_iso: now.toISOString(),
-    timestamp_12h: now.toLocaleString('en-US', { month: 'numeric', day: 'numeric', year: 'numeric', hour: '2-digit', minute: '2-digit', second: '2-digit', hour12: true }),
-    time_12h: now.toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit', second: '2-digit', hour12: true }),
-    date_formatted: now.toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric', year: 'numeric' }),
-    timezone: Intl.DateTimeFormat().resolvedOptions().timeZone || 'Asia/Kolkata'
-  });
+  res.json(timeService.getTimePayload());
+});
+
+app.post(['/time', '/api/time'], (req, res) => {
+  try {
+    const { date, reset } = req.body;
+    if (reset) {
+      const now = timeService.resetServerTime();
+      return res.json({ 
+        success: true, 
+        message: 'Server time reset to system clock', 
+        now: now.toISOString(),
+        payload: timeService.getTimePayload() 
+      });
+    }
+    if (!date) {
+      return res.status(400).json({ 
+        success: false, 
+        error: 'date string is required (e.g. "2026-10-09 11:30:00" or "2026-10-01")' 
+      });
+    }
+    const updated = timeService.setServerTime(date);
+    res.json({
+      success: true,
+      message: 'Server time set successfully',
+      server_date: updated.toISOString(),
+      payload: timeService.getTimePayload()
+    });
+  } catch (err) {
+    res.status(400).json({ success: false, error: err.message });
+  }
 });
 
 // Fallback non-API requests to frontend/dist/index.html (compatible with Express 4 & 5)

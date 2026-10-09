@@ -1,10 +1,14 @@
 const db = require('../db/database');
+const timeService = require('./time_service');
 
 class AnalyticsService {
   /**
    * Get Department-wise Attendance & Overtime Breakdown
    */
-  async getDepartmentAnalytics(month = 5, year = 2026) {
+  async getDepartmentAnalytics(month = null, year = null) {
+    const serverNow = timeService.getServerDate();
+    month = month || (serverNow.getMonth() + 1);
+    year = year || serverNow.getFullYear();
     const sql = `
       SELECT 
         COALESCE(e.department, 'Unassigned') as department,
@@ -85,7 +89,10 @@ class AnalyticsService {
   /**
    * Get Daily Attendance Trend across the entire month (1..31)
    */
-  async getDailyAttendanceTrend(month = 5, year = 2026) {
+  async getDailyAttendanceTrend(month = null, year = null) {
+    const serverNow = timeService.getServerDate();
+    month = month || (serverNow.getMonth() + 1);
+    year = year || serverNow.getFullYear();
     const monthStr = String(month).padStart(2, '0');
     const datePrefix = `${year}-${monthStr}-%`;
 
@@ -124,7 +131,10 @@ class AnalyticsService {
   /**
    * Top Overtime Earners Leaderboard
    */
-  async getOvertimeLeaderboard(month = 5, year = 2026, limit = 10) {
+  async getOvertimeLeaderboard(month = null, year = null, limit = 10) {
+    const serverNow = timeService.getServerDate();
+    month = month || (serverNow.getMonth() + 1);
+    year = year || serverNow.getFullYear();
     const sql = `
       SELECT 
         e.emp_code,
@@ -155,7 +165,10 @@ class AnalyticsService {
   /**
    * Late Arrival Analytics
    */
-  async getLateArrivalAnalytics(month = 5, year = 2026, limit = 10) {
+  async getLateArrivalAnalytics(month = null, year = null, limit = 10) {
+    const serverNow = timeService.getServerDate();
+    month = month || (serverNow.getMonth() + 1);
+    year = year || serverNow.getFullYear();
     const sql = `
       SELECT 
         e.emp_code,

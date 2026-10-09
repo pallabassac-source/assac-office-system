@@ -1,7 +1,7 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { Routes, Route, Navigate, useNavigate } from 'react-router-dom';
 import { AuthProvider, useAuth } from './context/AuthContext';
-import { ServerTimeProvider } from './context/ServerTimeContext';
+import { ServerTimeProvider, useServerTime } from './context/ServerTimeContext';
 import InternalNetworkBar from './components/InternalNetworkBar';
 import Navbar from './components/Navbar';
 import LoginModal from './components/LoginModal';
@@ -53,9 +53,33 @@ function SuperAdminRoute({ refreshKey }) {
 }
 
 function AppContent() {
-  const [selectedMonth, setSelectedMonth] = useState(5);
-  const [selectedYear, setSelectedYear] = useState(2026);
+  const { serverDate, isSynced } = useServerTime();
+  const [userSelectedPeriod, setUserSelectedPeriod] = useState(false);
+
+  // Initialize with current system month/year immediately
+  const now = new Date();
+  const [selectedMonth, setSelectedMonth] = useState(() => now.getMonth() + 1);
+  const [selectedYear, setSelectedYear] = useState(() => now.getFullYear());
   const [refreshKey, setRefreshKey] = useState(0);
+
+  // Automatically sync with server's month and year once server time responds,
+  // unless user has actively selected a different period from the dropdown.
+  useEffect(() => {
+    if (isSynced && !userSelectedPeriod && serverDate) {
+      setSelectedMonth(serverDate.getMonth() + 1);
+      setSelectedYear(serverDate.getFullYear());
+    }
+  }, [isSynced, serverDate, userSelectedPeriod]);
+
+  const handleMonthChange = (val) => {
+    setUserSelectedPeriod(true);
+    setSelectedMonth(typeof val === 'function' ? val : Number(val));
+  };
+
+  const handleYearChange = (val) => {
+    setUserSelectedPeriod(true);
+    setSelectedYear(typeof val === 'function' ? val : Number(val));
+  };
 
   const handleRefresh = () => setRefreshKey(prev => prev + 1);
 
@@ -72,8 +96,8 @@ function AppContent() {
         onRefresh={handleRefresh}
         selectedMonth={selectedMonth}
         selectedYear={selectedYear}
-        setSelectedMonth={setSelectedMonth}
-        setSelectedYear={setSelectedYear}
+        setSelectedMonth={handleMonthChange}
+        setSelectedYear={handleYearChange}
       />
 
       {/* Main Portal Workspace Routing */}
@@ -95,8 +119,8 @@ function AppContent() {
                 year={selectedYear}
                 selectedMonth={selectedMonth}
                 selectedYear={selectedYear}
-                setSelectedMonth={setSelectedMonth}
-                setSelectedYear={setSelectedYear}
+                setSelectedMonth={handleMonthChange}
+                setSelectedYear={handleYearChange}
                 onRefresh={handleRefresh}
               />
             } 

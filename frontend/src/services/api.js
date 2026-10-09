@@ -12,9 +12,13 @@ const api = axios.create({
 });
 
 // ==========================================
+const getCurrentMonth = () => new Date().getMonth() + 1;
+const getCurrentYear = () => new Date().getFullYear();
+
+// ==========================================
 // 1. DASHBOARD & ATTENDANCE
 // ==========================================
-export const getDashboardStats = async (month = 5, year = 2026, department = null) => {
+export const getDashboardStats = async (month = getCurrentMonth(), year = getCurrentYear(), department = null) => {
   const params = { month, year };
   if (department && department !== 'ALL') params.department = department;
   const res = await api.get('/dashboard/stats', { params });
@@ -26,7 +30,7 @@ export const getAttendanceRecords = async (params = {}) => {
   return res.data;
 };
 
-export const getEmployeeDetail = async (id, month = 5, year = 2026) => {
+export const getEmployeeDetail = async (id, month = getCurrentMonth(), year = getCurrentYear()) => {
   const res = await api.get(`/employees/${id}`, { params: { month, year } });
   return res.data;
 };
@@ -41,13 +45,23 @@ export const createDepartment = async (name, code = null) => {
   return res.data;
 };
 
-export const getAnalytics = async (month = 5, year = 2026) => {
+export const getAnalytics = async (month = getCurrentMonth(), year = getCurrentYear()) => {
   const res = await api.get('/analytics', { params: { month, year } });
   return res.data;
 };
 
 export const getServerTime = async () => {
   const res = await api.get('/time');
+  return res.data;
+};
+
+export const setServerTime = async (date) => {
+  const res = await api.post('/time', { date });
+  return res.data;
+};
+
+export const resetServerTime = async () => {
+  const res = await api.post('/time', { reset: true });
   return res.data;
 };
 
@@ -75,13 +89,13 @@ export const getAvailablePeriods = async () => {
   return res.data;
 };
 
-export const getExportExcelUrl = (month = 5, year = 2026, department = null) => {
+export const getExportExcelUrl = (month = getCurrentMonth(), year = getCurrentYear(), department = null) => {
   let url = `${API_BASE_URL}/export/excel?month=${month}&year=${year}`;
   if (department && department !== 'ALL') url += `&department=${encodeURIComponent(department)}`;
   return url;
 };
 
-export const getExportPDFUrl = (month = 5, year = 2026, department = null, options = {}) => {
+export const getExportPDFUrl = (month = getCurrentMonth(), year = getCurrentYear(), department = null, options = {}) => {
   let url = `${API_BASE_URL}/export/pdf?month=${month}&year=${year}`;
   if (department && department !== 'ALL') url += `&department=${encodeURIComponent(department)}`;
   if (options.includeStats === false) url += `&includeStats=false`;

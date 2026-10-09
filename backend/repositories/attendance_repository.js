@@ -1,14 +1,15 @@
 const db = require('../db/database');
+const timeService = require('../services/time_service');
 
 class AttendanceRepository {
   /**
    * Save parsed attendance payload into database using single transaction
    */
   async ingestParsedData(parsedData, userId = 1) {
-    const { meta, employees } = parsedData;
-    const month = meta.month || 5;
-    const year = meta.year || 2026;
-    const reportPeriod = meta.period_from && meta.period_to ? `${meta.period_from} to ${meta.period_to}` : 'May 2026';
+    const serverNow = timeService.getServerDate();
+    const month = meta.month || (serverNow.getMonth() + 1);
+    const year = meta.year || serverNow.getFullYear();
+    const reportPeriod = meta.period_from && meta.period_to ? `${meta.period_from} to ${meta.period_to}` : `${month}/${year}`;
 
     const insertEmp = db.prepare(`
       INSERT INTO employees (emp_code, name, department, designation, branch)
@@ -101,7 +102,10 @@ class AttendanceRepository {
     }
   }
 
-  async getDashboardStats(month = 5, year = 2026, department = null) {
+  async getDashboardStats(month = null, year = null, department = null) {
+    const serverNow = timeService.getServerDate();
+    month = month || (serverNow.getMonth() + 1);
+    year = year || serverNow.getFullYear();
     let deptFilter = '';
     const params = [month, year];
 
@@ -221,7 +225,10 @@ class AttendanceRepository {
     };
   }
 
-  async getRecords({ month = 5, year = 2026, department = null, search = null, limit = 100, offset = 0 }) {
+  async getRecords({ month = null, year = null, department = null, search = null, limit = 100, offset = 0 }) {
+    const serverNow = timeService.getServerDate();
+    month = month || (serverNow.getMonth() + 1);
+    year = year || serverNow.getFullYear();
     let sql = `
       SELECT 
         e.id as employee_id,
@@ -263,7 +270,10 @@ class AttendanceRepository {
     return await db.prepare(sql).all(...params);
   }
 
-  async getEmployeeDetail(employeeId, month = 5, year = 2026) {
+  async getEmployeeDetail(employeeId, month = null, year = null) {
+    const serverNow = timeService.getServerDate();
+    month = month || (serverNow.getMonth() + 1);
+    year = year || serverNow.getFullYear();
     const emp = await db.prepare('SELECT * FROM employees WHERE id = ?').get(employeeId);
     if (!emp) return null;
 
@@ -305,7 +315,10 @@ class AttendanceRepository {
     };
   }
 
-  async getDetailedAttendanceMatrix(month = 5, year = 2026, department = null) {
+  async getDetailedAttendanceMatrix(month = null, year = null, department = null) {
+    const serverNow = timeService.getServerDate();
+    month = month || (serverNow.getMonth() + 1);
+    year = year || serverNow.getFullYear();
     let sql = `
       SELECT e.id as employee_id, e.emp_code, e.name, e.department, e.designation, am.report_period
       FROM employees e

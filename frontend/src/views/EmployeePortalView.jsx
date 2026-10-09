@@ -24,14 +24,21 @@ import {
   ShieldCheck
 } from 'lucide-react';
 
-export default function EmployeePortalView({ selectedMonth = 5, selectedYear = 2026 }) {
+export default function EmployeePortalView({ selectedMonth, selectedYear }) {
   const { user } = useAuth();
+  const currentMonth = new Date().getMonth() + 1;
+  const currentYear = new Date().getFullYear();
   const [activeTab, setActiveTab] = useState('attendance'); // 'attendance' | 'forms' | 'holidays'
-  const [month, setMonth] = useState(selectedMonth);
-  const [year, setYear] = useState(selectedYear);
+  const [month, setMonth] = useState(selectedMonth || currentMonth);
+  const [year, setYear] = useState(selectedYear || currentYear);
   const [myRecord, setMyRecord] = useState(null);
   const [myDetail, setMyDetail] = useState(null);
   const [isLoading, setIsLoading] = useState(true);
+
+  useEffect(() => {
+    if (selectedMonth) setMonth(selectedMonth);
+    if (selectedYear) setYear(selectedYear);
+  }, [selectedMonth, selectedYear]);
 
   // Load employee's own record from backend
   const loadMyData = async () => {

@@ -4,6 +4,7 @@ const excelParser = require('../services/excel_parser');
 const attendanceRepository = require('../repositories/attendance_repository');
 const analyticsService = require('../services/analytics_service');
 const exportService = require('../services/export_service');
+const timeService = require('../services/time_service');
 
 class AttendanceController {
   /**
@@ -62,8 +63,9 @@ class AttendanceController {
    */
   async getDashboardStats(req, res) {
     try {
-      const month = parseInt(req.query.month) || 5;
-      const year = parseInt(req.query.year) || 2026;
+      const serverNow = timeService.getServerDate();
+      const month = parseInt(req.query.month) || (serverNow.getMonth() + 1);
+      const year = parseInt(req.query.year) || serverNow.getFullYear();
       const department = req.query.department || null;
 
       const stats = await attendanceRepository.getDashboardStats(month, year, department);
@@ -79,8 +81,9 @@ class AttendanceController {
    */
   async getRecords(req, res) {
     try {
-      const month = parseInt(req.query.month) || 5;
-      const year = parseInt(req.query.year) || 2026;
+      const serverNow = timeService.getServerDate();
+      const month = parseInt(req.query.month) || (serverNow.getMonth() + 1);
+      const year = parseInt(req.query.year) || serverNow.getFullYear();
       const department = req.query.department || null;
       const search = req.query.search || null;
       const limit = parseInt(req.query.limit) || 100;
@@ -99,9 +102,10 @@ class AttendanceController {
    */
   async getEmployeeDetail(req, res) {
     try {
+      const serverNow = timeService.getServerDate();
       const empId = parseInt(req.params.id);
-      const month = parseInt(req.query.month) || 5;
-      const year = parseInt(req.query.year) || 2026;
+      const month = parseInt(req.query.month) || (serverNow.getMonth() + 1);
+      const year = parseInt(req.query.year) || serverNow.getFullYear();
 
       const detail = await attendanceRepository.getEmployeeDetail(empId, month, year);
       if (!detail) {
@@ -120,8 +124,9 @@ class AttendanceController {
    */
   async getAnalytics(req, res) {
     try {
-      const month = parseInt(req.query.month) || 5;
-      const year = parseInt(req.query.year) || 2026;
+      const serverNow = timeService.getServerDate();
+      const month = parseInt(req.query.month) || (serverNow.getMonth() + 1);
+      const year = parseInt(req.query.year) || serverNow.getFullYear();
 
       const deptAnalytics = await analyticsService.getDepartmentAnalytics(month, year);
       const dailyTrend = await analyticsService.getDailyAttendanceTrend(month, year);
@@ -161,8 +166,9 @@ class AttendanceController {
    */
   async exportExcel(req, res) {
     try {
-      const month = parseInt(req.query.month) || 5;
-      const year = parseInt(req.query.year) || 2026;
+      const serverNow = timeService.getServerDate();
+      const month = parseInt(req.query.month) || (serverNow.getMonth() + 1);
+      const year = parseInt(req.query.year) || serverNow.getFullYear();
       const department = req.query.department || null;
 
       const buffer = await exportService.generateMonthlyExcel(month, year, department);
@@ -180,8 +186,9 @@ class AttendanceController {
    */
   async exportPDF(req, res) {
     try {
-      const month = parseInt(req.query.month) || 5;
-      const year = parseInt(req.query.year) || 2026;
+      const serverNow = timeService.getServerDate();
+      const month = parseInt(req.query.month) || (serverNow.getMonth() + 1);
+      const year = parseInt(req.query.year) || serverNow.getFullYear();
       const department = req.query.department || null;
 
       const options = {

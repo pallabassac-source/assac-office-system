@@ -9,6 +9,7 @@ const internController = require('../controllers/intern_controller');
 const employeeController = require('../controllers/employee_controller');
 const departmentController = require('../controllers/department_controller');
 const authController = require('../controllers/auth_controller');
+const timeService = require('../services/time_service');
 
 // Configure multer file upload
 const uploadsDir = process.env.UPLOADS_DIR || path.resolve(__dirname, '../../uploads');
@@ -112,16 +113,37 @@ router.get('/health', (req, res) => {
 });
 
 router.get('/time', (req, res) => {
-  const now = new Date();
-  res.json({
-    success: true,
-    timestamp: now.getTime(),
-    timestamp_iso: now.toISOString(),
-    timestamp_12h: now.toLocaleString('en-US', { month: 'numeric', day: 'numeric', year: 'numeric', hour: '2-digit', minute: '2-digit', second: '2-digit', hour12: true }),
-    time_12h: now.toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit', second: '2-digit', hour12: true }),
-    date_formatted: now.toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric', year: 'numeric' }),
-    timezone: Intl.DateTimeFormat().resolvedOptions().timeZone || 'Asia/Kolkata'
-  });
+  res.json(timeService.getTimePayload());
+});
+
+router.post('/time', (req, res) => {
+  try {
+    const { date, reset } = req.body;
+    if (reset) {
+      const now = timeService.resetServerTime();
+      return res.json({ 
+        success: true, 
+        message: 'Server time reset to system clock', 
+        now: now.toISOString(),
+        payload: timeService.getTimePayload() 
+      });
+    }
+    if (!date) {
+      return res.status(400).json({ 
+        success: false, 
+        error: 'date string is required (e.g. "2026-10-09 11:30:00" or "2026-10-01")' 
+      });
+    }
+    const updated = timeService.setServerTime(date);
+    res.json({
+      success: true,
+      message: 'Server time set successfully',
+      server_date: updated.toISOString(),
+      payload: timeService.getTimePayload()
+    });
+  } catch (err) {
+    res.status(400).json({ success: false, error: err.message });
+  }
 });
 
 // ==========================================
