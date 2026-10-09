@@ -9,6 +9,7 @@ const internController = require('../controllers/intern_controller');
 const employeeController = require('../controllers/employee_controller');
 const departmentController = require('../controllers/department_controller');
 const authController = require('../controllers/auth_controller');
+const aiController = require('../controllers/ai_controller');
 const timeService = require('../services/time_service');
 
 // Configure multer file upload
@@ -227,5 +228,13 @@ router.get('/holidays', (req, res) => {
     holidays: allHolidays
   });
 });
+// ==========================================
+// 10. CLOUDFLARE WORKERS AI PLAYGROUND (OPEN WEBUI)
+// ==========================================
+router.get('/ai/models', (req, res) => aiController.getModels(req, res));
+router.get('/ai/status', (req, res) => aiController.getStatus(req, res));
+router.post('/ai/chat', (req, res) => aiController.chatCompletion(req, res));
+router.post('/ai/image', (req, res) => aiController.generateImage(req, res));
+router.post('/ai/presentation', (req, res) => aiController.generatePresentation(req, res));
 
 module.exports = router;

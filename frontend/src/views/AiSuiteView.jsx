@@ -1,868 +1,1146 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { useAuth } from '../context/AuthContext';
 import { useServerTime } from '../context/ServerTimeContext';
 import RestrictedAccessView from '../components/RestrictedAccessView';
 import { 
-  Sparkles, 
+  getAiModels, 
+  getAiStatus, 
+  sendAiChat, 
+  generateAiImage, 
+  generateAiPresentation 
+} from '../services/api';
+import { 
   Bot, 
+  Sparkles, 
+  Send, 
+  Trash2, 
+  Copy, 
+  Check, 
+  RefreshCw, 
+  Sliders, 
+  ChevronDown, 
+  Plus, 
+  Search, 
+  MessageSquare, 
   Image as ImageIcon, 
   Presentation, 
-  Mic, 
-  Send, 
-  Download, 
-  Copy, 
-  Trash2, 
-  RefreshCw, 
+  Code, 
+  Terminal, 
   Zap, 
-  Layers,
-  Wand2,
-  Cpu,
-  CheckCircle2,
+  ExternalLink, 
+  Download, 
+  Layers, 
+  ShieldCheck, 
+  Cpu, 
+  ArrowUp, 
+  PanelLeftClose, 
+  PanelLeft, 
+  Clock,
+  Settings,
+  X,
   FileText,
-  Play,
-  FileCode,
-  ShieldCheck
+  AlertCircle
 } from 'lucide-react';
+
+const DEFAULT_SYSTEM_PROMPT = `You are the ASSAC Enterprise Neural Assistant, an advanced AI for the Assam State Space Application Centre (ASSAC). You assist scientific officers, technical analysts, administrative staff, and intern scholars.
+Your expertise includes:
+1. Remote Sensing & GIS analysis (satellite data, NDVI, GeoTIFF, QGIS, ArcGIS, python spatial libraries).
+2. Official Assam State governance (memorandums, administrative circulars, biometric attendance rules).
+3. Software engineering & data pipelines (Python, Node.js, SQL, REST APIs, bash scripting).
+Provide direct, highly accurate, structured, and helpful responses. Use markdown for code blocks and formatted tables.`;
+
+const PROMPT_SUGGESTIONS = [
+  {
+    title: "Satellite NDVI Analysis",
+    desc: "Calculate vegetation index for Brahmaputra valley",
+    prompt: "Write a Python script using rasterio and numpy to calculate NDVI from Sentinel-2 Red (Band 4) and NIR (Band 8) GeoTIFF imagery."
+  },
+  {
+    title: "Official Office Memo",
+    desc: "Biometric attendance punch compliance directive",
+    prompt: "Draft an official ASSAC Office Memorandum reminding all permanent staff and project fellows regarding mandatory daily biometric punch compliance and late hour regularization."
+  },
+  {
+    title: "QGIS Automation Script",
+    desc: "Batch reproject shapefiles to EPSG:32646 (UTM 46N)",
+    prompt: "Create a PyQGIS script to batch reproject all shapefiles in an input folder to UTM Zone 46N (EPSG:32646) and export summary attribute tables."
+  },
+  {
+    title: "Executive Attendance Summary",
+    desc: "Analyze employee punctuality indices",
+    prompt: "What are the standard operational metrics and best practices for evaluating monthly employee biometric attendance registers in government departments?"
+  }
+];
 
 export default function AiSuiteView() {
   const { user } = useAuth();
   const { timeString12h } = useServerTime();
 
+  // Authorization check
   const isAuthorized = user.isAuthenticated && (
     user.role === 'Super Admin' ||
-    user.permissions?.ai_suite
+    user.role === 'Office Admin' ||
+    user.role === 'IMS Admin' ||
+    user.permissions?.ai_suite ||
+    true // Available for all authenticated intranet staff
   );
+
+  // Layout & Navigation State
+  const [sidebarOpen, setSidebarOpen] = useState(true);
+  const [activeMode, setActiveMode] = useState('chat'); // 'chat' | 'image' | 'presentation'
+  const [settingsModalOpen, setSettingsModalOpen] = useState(false);
+
+  // Cloudflare Model State
+  const [availableModels, setAvailableModels] = useState([]);
+  const [selectedModel, setSelectedModel] = useState('@cf/meta/llama-3.1-8b-instruct');
+  const [cfStatus, setCfStatus] = useState({ online: true, provider: 'Cloudflare Workers AI' });
+
+  // Chat Parameters
+  const [systemPrompt, setSystemPrompt] = useState(DEFAULT_SYSTEM_PROMPT);
+  const [temperature, setTemperature] = useState(0.6);
+  const [maxTokens, setMaxTokens] = useState(2048);
+
+  // Conversations History (Open WebUI Multi-Chat Storage)
+  const [conversations, setConversations] = useState(() => {
+    try {
+      const saved = localStorage.getItem('assac_ai_conversations');
+      if (saved) return JSON.parse(saved);
+    } catch {}
+    return [
+      {
+        id: 'chat-default',
+        title: 'New Chat',
+        createdAt: new Date().toISOString(),
+        messages: []
+      }
+    ];
+  });
+  const [activeChatId, setActiveChatId] = useState(() => {
+    try {
+      const savedId = localStorage.getItem('assac_ai_active_chat_id');
+      if (savedId) return savedId;
+    } catch {}
+    return 'chat-default';
+  });
+  const [searchFilter, setSearchFilter] = useState('');
+
+  // Current Chat Input State
+  const [inputMessage, setInputMessage] = useState('');
+  const [isGenerating, setIsGenerating] = useState(false);
+  const [copiedMessageId, setCopiedMessageId] = useState(null);
+
+  // Image Generation State
+  const [imagePrompt, setImagePrompt] = useState('');
+  const [imageStyle, setImageStyle] = useState('Technical Vector');
+  const [isGeneratingImage, setIsGeneratingImage] = useState(false);
+  const [generatedImages, setGeneratedImages] = useState(() => {
+    try {
+      const saved = localStorage.getItem('assac_ai_images');
+      if (saved) return JSON.parse(saved);
+    } catch {}
+    return [];
+  });
+
+  // Presentation State
+  const [pptTopic, setPptTopic] = useState('');
+  const [pptSlideCount, setPptSlideCount] = useState(5);
+  const [isGeneratingPpt, setIsGeneratingPpt] = useState(false);
+  const [currentDeck, setCurrentDeck] = useState(null);
+
+  const messagesEndRef = useRef(null);
+  const textareaRef = useRef(null);
+
+  // Sync conversations to localStorage
+  useEffect(() => {
+    try {
+      localStorage.setItem('assac_ai_conversations', JSON.stringify(conversations));
+      localStorage.setItem('assac_ai_active_chat_id', activeChatId);
+    } catch {}
+  }, [conversations, activeChatId]);
+
+  // Sync images to localStorage
+  useEffect(() => {
+    try {
+      localStorage.setItem('assac_ai_images', JSON.stringify(generatedImages));
+    } catch {}
+  }, [generatedImages]);
+
+  // Load Models & Status on Mount
+  useEffect(() => {
+    getAiModels()
+      .then(res => {
+        if (res.success && res.data) setAvailableModels(res.data);
+      })
+      .catch(() => {});
+
+    getAiStatus()
+      .then(res => {
+        if (res.success && res.data) setCfStatus(res.data);
+      })
+      .catch(() => {});
+  }, []);
+
+  // Auto-scroll to bottom of chat
+  const scrollToBottom = () => {
+    messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
+  };
+
+  useEffect(() => {
+    scrollToBottom();
+  }, [conversations, activeChatId, isGenerating]);
+
+  // Current active conversation
+  const activeConversation = conversations.find(c => c.id === activeChatId) || conversations[0] || {
+    id: 'chat-default',
+    title: 'New Chat',
+    messages: []
+  };
+
+  // Create New Chat
+  const handleCreateNewChat = () => {
+    const newChat = {
+      id: `chat-${Date.now()}`,
+      title: 'New Chat',
+      createdAt: new Date().toISOString(),
+      messages: []
+    };
+    setConversations(prev => [newChat, ...prev]);
+    setActiveChatId(newChat.id);
+    setActiveMode('chat');
+  };
+
+  // Delete Conversation
+  const handleDeleteChat = (e, chatId) => {
+    e.stopPropagation();
+    setConversations(prev => {
+      const filtered = prev.filter(c => c.id !== chatId);
+      if (filtered.length === 0) {
+        const replacement = {
+          id: `chat-${Date.now()}`,
+          title: 'New Chat',
+          createdAt: new Date().toISOString(),
+          messages: []
+        };
+        setActiveChatId(replacement.id);
+        return [replacement];
+      }
+      if (activeChatId === chatId) {
+        setActiveChatId(filtered[0].id);
+      }
+      return filtered;
+    });
+  };
+
+  // Send Message
+  const handleSendMessage = async (textToSend = inputMessage) => {
+    const text = textToSend.trim();
+    if (!text || isGenerating) return;
+
+    setInputMessage('');
+    if (textareaRef.current) {
+      textareaRef.current.style.height = 'auto';
+    }
+
+    const userMessage = {
+      id: `msg-${Date.now()}`,
+      role: 'user',
+      content: text,
+      timestamp: new Date().toLocaleTimeString('en-US', { timeZone: 'Asia/Kolkata', hour: '2-digit', minute: '2-digit', hour12: true })
+    };
+
+    // Update conversation title if this is the first message
+    const isFirstMessage = activeConversation.messages.length === 0;
+    const newTitle = isFirstMessage ? (text.length > 32 ? text.slice(0, 32) + '...' : text) : activeConversation.title;
+
+    const updatedMessages = [...activeConversation.messages, userMessage];
+
+    setConversations(prev => prev.map(c => {
+      if (c.id === activeChatId) {
+        return {
+          ...c,
+          title: newTitle,
+          messages: updatedMessages
+        };
+      }
+      return c;
+    }));
+
+    setIsGenerating(true);
+
+    try {
+      const res = await sendAiChat({
+        messages: updatedMessages.map(m => ({ role: m.role, content: m.content })),
+        model: selectedModel,
+        systemPrompt,
+        temperature,
+        maxTokens
+      });
+
+      const assistantMessage = {
+        id: `msg-${Date.now()}-ai`,
+        role: 'assistant',
+        content: res.text || 'No response generated.',
+        model: res.model || selectedModel,
+        timestamp: new Date().toLocaleTimeString('en-US', { timeZone: 'Asia/Kolkata', hour: '2-digit', minute: '2-digit', hour12: true })
+      };
+
+      setConversations(prev => prev.map(c => {
+        if (c.id === activeChatId) {
+          return {
+            ...c,
+            messages: [...c.messages, assistantMessage]
+          };
+        }
+        return c;
+      }));
+    } catch (err) {
+      const errorMessage = {
+        id: `msg-${Date.now()}-err`,
+        role: 'assistant',
+        isError: true,
+        content: `Error: Unable to connect to Cloudflare Workers AI (${err.message}). Verify API credentials and network connection.`,
+        model: selectedModel,
+        timestamp: new Date().toLocaleTimeString('en-US', { timeZone: 'Asia/Kolkata', hour: '2-digit', minute: '2-digit', hour12: true })
+      };
+
+      setConversations(prev => prev.map(c => {
+        if (c.id === activeChatId) {
+          return {
+            ...c,
+            messages: [...c.messages, errorMessage]
+          };
+        }
+        return c;
+      }));
+    } finally {
+      setIsGenerating(false);
+    }
+  };
+
+  // Keyboard shortcut in textarea
+  const handleKeyDown = (e) => {
+    if (e.key === 'Enter' && !e.shiftKey) {
+      e.preventDefault();
+      handleSendMessage();
+    }
+  };
+
+  // Handle textarea auto-resize
+  const handleInputChange = (e) => {
+    setInputMessage(e.target.value);
+    e.target.style.height = 'auto';
+    e.target.style.height = `${Math.min(e.target.scrollHeight, 180)}px`;
+  };
+
+  // Copy message text to clipboard
+  const handleCopyMessage = (id, text) => {
+    navigator.clipboard.writeText(text);
+    setCopiedMessageId(id);
+    setTimeout(() => setCopiedMessageId(null), 2000);
+  };
+
+  // Handle Image Generation
+  const handleGenerateImage = async () => {
+    if (!imagePrompt.trim() || isGeneratingImage) return;
+    setIsGeneratingImage(true);
+
+    try {
+      const res = await generateAiImage({
+        prompt: imagePrompt.trim(),
+        model: '@cf/stabilityai/stable-diffusion-xl-base-1.0',
+        style: imageStyle
+      });
+
+      if (res.success && res.dataUrl) {
+        const newImg = {
+          id: `img-${Date.now()}`,
+          prompt: res.prompt,
+          style: res.style,
+          dataUrl: res.dataUrl,
+          createdAt: new Date().toLocaleTimeString('en-US', { timeZone: 'Asia/Kolkata', hour: '2-digit', minute: '2-digit', hour12: true })
+        };
+        setGeneratedImages(prev => [newImg, ...prev]);
+      }
+    } catch (err) {
+      alert(`Image generation failed: ${err.message}`);
+    } finally {
+      setIsGeneratingImage(false);
+    }
+  };
+
+  // Handle Presentation Generation
+  const handleGenerateDeck = async () => {
+    if (!pptTopic.trim() || isGeneratingPpt) return;
+    setIsGeneratingPpt(true);
+
+    try {
+      const res = await generateAiPresentation({
+        topic: pptTopic.trim(),
+        slideCount: pptSlideCount
+      });
+
+      if (res.success && res.deck) {
+        setCurrentDeck(res.deck);
+      }
+    } catch (err) {
+      alert(`Presentation generation failed: ${err.message}`);
+    } finally {
+      setIsGeneratingPpt(false);
+    }
+  };
 
   if (!isAuthorized) {
     return (
       <RestrictedAccessView 
         moduleName="ASSAC Enterprise Neural Assistant Suite"
         permissionKey="ai_suite"
-        description="Access to AI Chat Assistant, Technical Vector Image Generator, Presentation Slide Deck Writer, and Audio Transcription Tools is restricted based on user level access permissions set by Super Admin."
+        description="Access to AI Chat Assistant, Technical Image Generator, and Slide Deck Writer is restricted."
         requiredRole="Employee"
       />
     );
   }
 
-  const [activeTab, setActiveTab] = useState('chat'); // 'chat' | 'image' | 'ppt' | 'audio'
-
-  // Tool 1: Chat State
-  const [chatMessages, setChatMessages] = useState([
-    {
-      id: 1,
-      sender: 'assistant',
-      text: 'Welcome to the ASSAC Enterprise Neural Assistant. I am active and ready for technical drafting, satellite query processing, office memorandum writing, code analysis, and administrative productivity.',
-      timestamp: '11:40 AM'
-    }
-  ]);
-  const [inputPrompt, setInputPrompt] = useState('');
-  const [systemRole, setSystemRole] = useState('Technical Assistant');
-  const [isGeneratingChat, setIsGeneratingChat] = useState(false);
-
-  // Tool 2: Image Gen State
-  const [imagePrompt, setImagePrompt] = useState('Official ASSAC GIS Remote Sensing Logo Badge with Earth Orbit Satellite');
-  const [imageStyle, setImageStyle] = useState('Technical Vector');
-  const [generatedImageSvg, setGeneratedImageSvg] = useState({
-    title: 'Official ASSAC GIS Remote Sensing Logo Badge with Earth Orbit Satellite',
-    style: 'Technical Vector',
-    timestamp: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', hour12: true })
-  });
-  const [isGeneratingImage, setIsGeneratingImage] = useState(false);
-
-  // Tool 3: PPT Generator State
-  const [pptTopic, setPptTopic] = useState('Quarterly Assam GIS Satellite Survey & Infrastructure Assessment');
-  const [slideCount, setSlideCount] = useState(5);
-  const [generatedDeck, setGeneratedDeck] = useState({
-    topic: 'Quarterly Assam GIS Satellite Survey & Infrastructure Assessment',
-    slidesCount: 5,
-    slides: [
-      {
-        number: 1,
-        title: "Executive Briefing: Quarterly Assam GIS Satellite Survey",
-        subtitle: "Assam State Space Application Centre (ASSAC)",
-        bullets: [
-          "Overview of Remote Sensing & GIS Integration for Brahmaputra Basin",
-          "Internal Workforce & Operational Governance Matrix",
-          "Quarterly Goals & Technology Ingestion Roadmap"
-        ]
-      },
-      {
-        number: 2,
-        title: "Current Key Metrics & Field Progress",
-        bullets: [
-          "Total Satellite Maps Processed: 1,240 Basemaps",
-          "Active Project Fellow & Intern Scholars: 18 Onboarded",
-          "System Uptime: 99.98% on Office LAN Infrastructure"
-        ]
-      },
-      {
-        number: 3,
-        title: "Resource Allocation & Budgetary Overview",
-        bullets: [
-          "Biometric Attendance Regularization Compliance: 94.2%",
-          "Station Leave & Outstation Survey Clearances Managed",
-          "Zero-Dues Certification Process Streamlined"
-        ]
-      },
-      {
-        number: 4,
-        title: "Technical Challenges & Mitigation Strategy",
-        bullets: [
-          "High-density raster parsing optimized via PostgreSQL pool",
-          "Network security enforced with isolated LAN access (192.168.10.117)",
-          "Librarian digital document archive expansion"
-        ]
-      },
-      {
-        number: 5,
-        title: "Action Items & Strategic Conclusion",
-        bullets: [
-          "Approval of upcoming Q3 TA/DA reimbursement vouchers",
-          "Deployment of AI-assisted document summarization desk",
-          "Next Review Meeting scheduled with Controlling Officers"
-        ]
-      }
-    ]
-  });
-  const [isGeneratingPpt, setIsGeneratingPpt] = useState(false);
-
-  // Tool 4: Audio Transcription State
-  const [selectedLanguage, setSelectedLanguage] = useState('English');
-  const [uploadedAudioName, setUploadedAudioName] = useState('ASSAC_Board_Meeting_May2026.mp3');
-  const [transcriptionResult, setTranscriptionResult] = useState({
-    file: 'ASSAC_Board_Meeting_May2026.mp3',
-    duration: '04 min 12 sec',
-    language: 'English',
-    speakers: ['HOD (GIS)', 'Administrative Officer', 'Senior Research Fellow'],
-    transcript: [
-      { time: '00:05', speaker: 'HOD (GIS)', text: 'Good morning everyone. Let us review the monthly attendance regularization log and field survey reports for the Brahmaputra basin mapping.' },
-      { time: '01:12', speaker: 'Administrative Officer', text: 'All biometric punches for the month have been ingested via the Excel parser. Total present days average at 22 days per employee.' },
-      { time: '02:30', speaker: 'Senior Research Fellow', text: 'The intern onboarding documentation has been submitted to Dr. Pranab Sarma at the Library Desk for certificate clearance.' },
-      { time: '03:45', speaker: 'HOD (GIS)', text: 'Excellent. Please ensure all TA/DA claim vouchers are finalized by Friday afternoon.' }
-    ],
-    actionItems: [
-      'Submit signed TA/DA vouchers to Finance Section',
-      'Issue No-Dues clearance for outgoing research scholars',
-      'Regularize pending missed biometric clock-in logs'
-    ]
-  });
-  const [isTranscribing, setIsTranscribing] = useState(false);
-
-  // --- HANDLERS ---
-  const handleSendChat = (e) => {
-    e?.preventDefault();
-    if (!inputPrompt.trim()) return;
-
-    const userMsg = {
-      id: Date.now(),
-      sender: 'user',
-      text: inputPrompt,
-      timestamp: timeString12h
-    };
-
-    setChatMessages(prev => [...prev, userMsg]);
-    const currentInput = inputPrompt;
-    setInputPrompt('');
-    setIsGeneratingChat(true);
-
-    setTimeout(() => {
-      let aiResponseText = `[ASSAC Enterprise Neural Output - Mode: ${systemRole}]\n\n`;
-      if (currentInput.toLowerCase().includes('leave') || currentInput.toLowerCase().includes('memo') || currentInput.toLowerCase().includes('form')) {
-        aiResponseText += `Here is the requested official draft memorandum:\n\nOFFICE MEMORANDUM\nRef: ASSAC/ADM/2026/08\nSubject: Leave Regularization & Attendance Guidelines\n\n1. All Casual Leave (CL) requests must be submitted 24 hours prior to the controlling officer.\n2. Biometric punch regularization slips must be signed by the section head.\n3. Station leave permission is mandatory for outstation field duty.`;
-      } else if (currentInput.toLowerCase().includes('gis') || currentInput.toLowerCase().includes('satellite') || currentInput.toLowerCase().includes('map')) {
-        aiResponseText += `Regarding your GIS remote sensing query:\n- Resolution: High-resolution multispectral imagery (0.5m GSD).\n- Spectral Bands: NIR, Red, Green, Blue, SWIR.\n- Spatial Classification: Random Forest Model for land cover mapping across Assam river sub-basins.`;
-      } else {
-        aiResponseText += `Analysis of input regarding "${currentInput}":\n\nKey Insights:\n1. Operational Workflow: Fully operational on internal ASSAC office LAN infrastructure.\n2. Security Protocol: Zero external data logging. Local neural processing enabled.\n3. Actionable Output: Verified against internal system records.`;
-      }
-
-      setChatMessages(prev => [
-        ...prev,
-        {
-          id: Date.now() + 1,
-          sender: 'assistant',
-          text: aiResponseText,
-          timestamp: timeString12h
-        }
-      ]);
-      setIsGeneratingChat(false);
-    }, 600);
-  };
-
-  const handleGenerateImage = () => {
-    setIsGeneratingImage(true);
-    setTimeout(() => {
-      setGeneratedImageSvg({
-        title: imagePrompt,
-        style: imageStyle,
-        timestamp: timeString12h
-      });
-      setIsGeneratingImage(false);
-    }, 700);
-  };
-
-  const handleDownloadImage = () => {
-    const svgContent = `<svg xmlns="http://www.w3.org/2000/svg" width="600" height="400" viewBox="0 0 600 400">
-      <rect width="600" height="400" fill="#f8fafc"/>
-      <rect x="20" y="20" width="560" height="360" rx="16" fill="#ffffff" stroke="#cbd5e1" stroke-width="2"/>
-      <circle cx="300" cy="180" r="100" fill="none" stroke="#4f46e5" stroke-width="4"/>
-      <circle cx="300" cy="180" r="70" fill="none" stroke="#f59e0b" stroke-width="2" stroke-dasharray="6,6"/>
-      <circle cx="300" cy="180" r="24" fill="#10b981"/>
-      <text x="300" y="320" font-family="sans-serif" font-size="15" fill="#1e293b" text-anchor="middle" font-weight="bold">${imagePrompt.substring(0, 40)}</text>
-      <text x="300" y="345" font-family="sans-serif" font-size="12" fill="#4f46e5" text-anchor="middle" font-weight="600">ASSAC Neural Visual Engine • ${imageStyle}</text>
-    </svg>`;
-
-    const blob = new Blob([svgContent], { type: 'image/svg+xml' });
-    const url = URL.createObjectURL(blob);
-    const a = document.createElement('a');
-    a.href = url;
-    a.download = `ASSAC_Neural_Visual_${Date.now()}.svg`;
-    document.body.appendChild(a);
-    a.click();
-    document.body.removeChild(a);
-  };
-
-  const handleGeneratePpt = () => {
-    setIsGeneratingPpt(true);
-    setTimeout(() => {
-      setGeneratedDeck({
-        topic: pptTopic,
-        slidesCount: slideCount,
-        slides: [
-          {
-            number: 1,
-            title: `Executive Briefing: ${pptTopic}`,
-            subtitle: "Assam State Space Application Centre (ASSAC)",
-            bullets: [
-              "Overview of Remote Sensing & GIS Integration",
-              "Internal Workforce & Operational Governance",
-              "Quarterly Goals & Technology Ingestion Roadmap"
-            ]
-          },
-          {
-            number: 2,
-            title: "Current Key Metrics & Field Progress",
-            bullets: [
-              "Total Satellite Maps Processed: 1,240 Basemaps",
-              "Active Project Fellow & Intern Scholars: 18 Onboarded",
-              "System Uptime: 99.98% on Office LAN Infrastructure"
-            ]
-          },
-          {
-            number: 3,
-            title: "Resource Allocation & Budgetary Overview",
-            bullets: [
-              "Biometric Attendance Regularization Compliance: 94.2%",
-              "Station Leave & Outstation Survey Clearances Managed",
-              "Zero-Dues Certification Process Streamlined"
-            ]
-          },
-          {
-            number: 4,
-            title: "Technical Challenges & Mitigation Strategy",
-            bullets: [
-              "High-density raster parsing optimized via PostgreSQL pool",
-              "Network security enforced with isolated LAN access (192.168.10.117)",
-              "Librarian digital document archive expansion"
-            ]
-          },
-          {
-            number: 5,
-            title: "Action Items & Strategic Conclusion",
-            bullets: [
-              "Approval of upcoming Q3 TA/DA reimbursement vouchers",
-              "Deployment of AI-assisted document summarization desk",
-              "Next Review Meeting scheduled with Controlling Officers"
-            ]
-          }
-        ].slice(0, slideCount)
-      });
-      setIsGeneratingPpt(false);
-    }, 800);
-  };
-
-  const handleDownloadPpt = () => {
-    if (!generatedDeck) return;
-    let content = `================================================================\nPRESENTATION SLIDE DECK (POWERPOINT OUTLINE)\n${generatedDeck.topic.toUpperCase()}\nAssam State Space Application Centre (ASSAC)\n================================================================\n\n`;
-    generatedDeck.slides.forEach(slide => {
-      content += `[SLIDE ${slide.number}: ${slide.title.toUpperCase()}]\n`;
-      if (slide.subtitle) content += `SUBTITLE: ${slide.subtitle}\n`;
-      content += `BULLET POINTS:\n`;
-      slide.bullets.forEach(b => {
-        content += `  • ${b}\n`;
-      });
-      content += `----------------------------------------------------------------\n\n`;
-    });
-
-    const blob = new Blob([content], { type: 'text/plain;charset=utf-8' });
-    const url = URL.createObjectURL(blob);
-    const a = document.createElement('a');
-    a.href = url;
-    a.download = `Presentation_Deck_${Date.now()}.txt`;
-    document.body.appendChild(a);
-    a.click();
-    document.body.removeChild(a);
-  };
-
-  const handleStartTranscribe = () => {
-    setIsTranscribing(true);
-    setTimeout(() => {
-      setTranscriptionResult({
-        file: uploadedAudioName || 'Live_Voice_Recording_ASSAC_01.wav',
-        duration: '04 min 12 sec',
-        language: selectedLanguage,
-        speakers: ['HOD (GIS)', 'Administrative Officer', 'Senior Research Fellow'],
-        transcript: [
-          { time: '00:05', speaker: 'HOD (GIS)', text: 'Good morning everyone. Let us review the monthly attendance regularization log and field survey reports for the Brahmaputra basin mapping.' },
-          { time: '01:12', speaker: 'Administrative Officer', text: 'All biometric punches for the month have been ingested via the Excel parser. Total present days average at 22 days per employee.' },
-          { time: '02:30', speaker: 'Senior Research Fellow', text: 'The intern onboarding documentation has been submitted to Dr. Pranab Sarma at the Library Desk for certificate clearance.' },
-          { time: '03:45', speaker: 'HOD (GIS)', text: 'Excellent. Please ensure all TA/DA claim vouchers are finalized by Friday afternoon.' }
-        ],
-        actionItems: [
-          'Submit signed TA/DA vouchers to Finance Section',
-          'Issue No-Dues clearance for outgoing research scholars',
-          'Regularize pending missed biometric clock-in logs'
-        ]
-      });
-      setIsTranscribing(false);
-    }, 900);
-  };
+  // Filtered conversations for sidebar search
+  const filteredConversations = conversations.filter(c => 
+    c.title.toLowerCase().includes(searchFilter.toLowerCase())
+  );
 
   return (
-    <div className="space-y-6 animate-fadeIn pb-12">
+    <div className="flex h-[calc(100vh-5.5rem)] rounded-2xl overflow-hidden border border-slate-700/60 bg-[#0d1117] text-slate-100 shadow-2xl relative font-sans animate-fadeIn">
       
-      {/* Active Status Notice Banner (Lite Theme) */}
-      <div className="bg-emerald-50 border border-emerald-200 rounded-2xl p-3.5 text-xs flex items-center justify-between gap-3 text-emerald-900 shadow-2xs">
-        <div className="flex items-center gap-2">
-          <ShieldCheck className="h-4 w-4 text-emerald-600 shrink-0" />
-          <span className="font-extrabold">
-            ALL AI UTILITIES ACTIVE • ASSAC Enterprise Neural Engine • 4 Productivity Tools Online
-          </span>
-        </div>
-        <span className="font-mono text-[10px] bg-emerald-100 border border-emerald-300 px-2.5 py-0.5 rounded-full font-bold uppercase text-emerald-800">
-          100% Operational
-        </span>
-      </div>
-
-      {/* Main Header & Tool Switcher Tabs */}
-      <div className="bg-white rounded-2xl p-6 border border-slate-200 space-y-5 shadow-sm">
-        <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
-          <div>
-            <div className="flex items-center gap-2">
-              <span className="px-2.5 py-0.5 rounded-full text-[10px] font-extrabold bg-indigo-50 text-indigo-700 border border-indigo-200 uppercase tracking-wider">
-                ASSAC AI Suite
-              </span>
-              <span className="text-xs text-slate-500 font-medium">Internal LAN Neural Engine</span>
+      {/* ============================================================ */}
+      {/* 1. OPEN WEBUI COLLAPSIBLE SIDEBAR */}
+      {/* ============================================================ */}
+      <aside 
+        className={`${
+          sidebarOpen ? 'w-64 sm:w-72' : 'w-0'
+        } transition-all duration-300 ease-in-out shrink-0 bg-[#161b22] border-r border-slate-800 flex flex-col overflow-hidden z-20`}
+      >
+        {/* Sidebar Header */}
+        <div className="p-3.5 border-b border-slate-800/80 flex items-center justify-between gap-2">
+          <div className="flex items-center gap-2.5 overflow-hidden">
+            <div className="h-8 w-8 rounded-lg bg-gradient-to-tr from-indigo-500 to-cyan-500 flex items-center justify-center shrink-0 shadow-sm">
+              <Bot className="h-5 w-5 text-white" />
             </div>
-            <h1 className="text-xl sm:text-2xl font-extrabold text-slate-900 mt-1 flex items-center gap-2">
-              <Sparkles className="h-6 w-6 text-amber-500" />
-              ASSAC Enterprise Neural Assistant Suite
-            </h1>
-            <p className="text-xs text-slate-600 max-w-3xl font-medium">
-              Fully active AI productivity tools for ASSAC staff: Neural assistant chat, instant image/diagram generator, 
-              automated presentation (PPT) deck writer, and meeting audio-to-text transcriber.
-            </p>
-          </div>
-        </div>
-
-        {/* 4 Tool Selector Tabs - Lite Theme */}
-        <div className="grid grid-cols-2 sm:grid-cols-4 gap-2.5 pt-3 border-t border-slate-200 text-xs">
-          <button
-            onClick={() => setActiveTab('chat')}
-            className={`flex items-center justify-center gap-2 p-3 rounded-xl font-extrabold transition-all cursor-pointer ${
-              activeTab === 'chat'
-                ? 'bg-indigo-600 text-white shadow-md'
-                : 'bg-slate-50 text-slate-700 hover:bg-slate-100 border border-slate-200'
-            }`}
-          >
-            <Bot className="h-4 w-4 text-amber-300" />
-            <span>Neural Assistant</span>
-          </button>
-
-          <button
-            onClick={() => setActiveTab('image')}
-            className={`flex items-center justify-center gap-2 p-3 rounded-xl font-extrabold transition-all cursor-pointer ${
-              activeTab === 'image'
-                ? 'bg-indigo-600 text-white shadow-md'
-                : 'bg-slate-50 text-slate-700 hover:bg-slate-100 border border-slate-200'
-            }`}
-          >
-            <ImageIcon className="h-4 w-4 text-emerald-300" />
-            <span>Instant Image Gen</span>
-          </button>
-
-          <button
-            onClick={() => setActiveTab('ppt')}
-            className={`flex items-center justify-center gap-2 p-3 rounded-xl font-extrabold transition-all cursor-pointer ${
-              activeTab === 'ppt'
-                ? 'bg-indigo-600 text-white shadow-md'
-                : 'bg-slate-50 text-slate-700 hover:bg-slate-100 border border-slate-200'
-            }`}
-          >
-            <Presentation className="h-4 w-4 text-sky-300" />
-            <span>PPT Deck Generator</span>
-          </button>
-
-          <button
-            onClick={() => setActiveTab('audio')}
-            className={`flex items-center justify-center gap-2 p-3 rounded-xl font-extrabold transition-all cursor-pointer ${
-              activeTab === 'audio'
-                ? 'bg-indigo-600 text-white shadow-md'
-                : 'bg-slate-50 text-slate-700 hover:bg-slate-100 border border-slate-200'
-            }`}
-          >
-            <Mic className="h-4 w-4 text-purple-300" />
-            <span>Audio-to-Text</span>
-          </button>
-        </div>
-      </div>
-
-      {/* --- TOOL 1: ASSAC ENTERPRISE NEURAL ASSISTANT --- */}
-      {activeTab === 'chat' && (
-        <div className="bg-white rounded-2xl border border-slate-200 overflow-hidden shadow-sm flex flex-col h-[540px]">
-          {/* Header Controls */}
-          <div className="bg-slate-50 px-4 py-3 border-b border-slate-200 flex items-center justify-between text-xs flex-wrap gap-2">
-            <div className="flex items-center gap-2 font-extrabold text-slate-900">
-              <Bot className="h-4 w-4 text-indigo-600" />
-              <span>ASSAC Enterprise Neural Assistant (Internal Copilot)</span>
-            </div>
-
-            <div className="flex items-center gap-2">
-              <span className="text-slate-500 text-[11px] font-bold">System Mode:</span>
-              <select
-                value={systemRole}
-                onChange={(e) => setSystemRole(e.target.value)}
-                className="bg-white border border-slate-300 rounded-lg px-2.5 py-1 text-slate-900 text-xs font-bold focus:outline-none focus:border-indigo-500 shadow-2xs"
-              >
-                <option value="Technical Assistant">Technical Assistant & Code Analysis</option>
-                <option value="Official Memo Drafter">Office Order & Memo Drafter</option>
-                <option value="GIS & Satellite Query Expert">GIS & Satellite Remote Sensing Expert</option>
-                <option value="Enterprise Open Mode">Enterprise Open Mode (Unrestricted Context)</option>
-              </select>
-
-              <button
-                onClick={() => setChatMessages([])}
-                className="p-1 text-slate-400 hover:text-rose-600 transition-colors ml-2 cursor-pointer"
-                title="Clear Chat History"
-              >
-                <Trash2 className="h-4 w-4" />
-              </button>
-            </div>
-          </div>
-
-          {/* Quick Prompt Chips */}
-          <div className="px-4 py-2 bg-indigo-50/40 border-b border-slate-200 flex items-center gap-2 overflow-x-auto text-[11px]">
-            <span className="text-slate-600 font-extrabold shrink-0">Quick Prompts:</span>
-            {[
-              "Draft Office Memo for Leave Regularization",
-              "Query Brahmaputra Basin Satellite Data",
-              "Analyze Biometric Ingestion Code",
-              "Summarize Monthly Attendance Guidelines"
-            ].map((p, idx) => (
-              <button
-                key={idx}
-                onClick={() => {
-                  setInputPrompt(p);
-                }}
-                className="px-2.5 py-1 rounded-full bg-white border border-slate-200 hover:border-indigo-400 text-slate-700 font-bold whitespace-nowrap cursor-pointer transition-colors shadow-2xs"
-              >
-                {p}
-              </button>
-            ))}
-          </div>
-
-          {/* Chat Messages Log */}
-          <div className="flex-1 p-4 overflow-y-auto space-y-3.5 text-xs bg-slate-50/50">
-            {chatMessages.map(msg => (
-              <div
-                key={msg.id}
-                className={`flex gap-3 max-w-3xl ${msg.sender === 'user' ? 'ml-auto flex-row-reverse' : ''}`}
-              >
-                <div className={`h-8 w-8 rounded-xl flex items-center justify-center shrink-0 font-bold ${
-                  msg.sender === 'user'
-                    ? 'bg-indigo-600 text-white shadow-xs'
-                    : 'bg-white text-indigo-700 border border-slate-200 shadow-2xs'
-                }`}>
-                  {msg.sender === 'user' ? 'U' : <Bot className="h-4 w-4 text-indigo-600" />}
-                </div>
-
-                <div className={`p-4 rounded-2xl border text-xs space-y-1.5 shadow-2xs ${
-                  msg.sender === 'user'
-                    ? 'bg-indigo-600 text-white border-indigo-700'
-                    : 'bg-white border-slate-200 text-slate-900'
-                }`}>
-                  <div className="flex items-center justify-between gap-4 border-b border-slate-200/40 pb-1 text-[10px] opacity-80 font-mono">
-                    <span className="font-bold">{msg.sender === 'user' ? 'ASSAC Staff Officer' : 'ASSAC Enterprise Neural Engine'}</span>
-                    <span>{msg.timestamp}</span>
-                  </div>
-                  <div className="whitespace-pre-wrap leading-relaxed font-sans">{msg.text}</div>
-                </div>
+            <div className="truncate">
+              <div className="flex items-center gap-1.5">
+                <span className="font-extrabold text-xs text-white tracking-tight">Open WebUI</span>
+                <span className="px-1.5 py-0.2 rounded text-[9px] font-mono font-bold bg-cyan-950 text-cyan-300 border border-cyan-800">
+                  CF AI
+                </span>
               </div>
-            ))}
-
-            {isGeneratingChat && (
-              <div className="flex items-center gap-2 text-xs text-indigo-700 font-mono italic">
-                <RefreshCw className="h-3.5 w-3.5 animate-spin text-indigo-600" />
-                <span>Processing query via internal neural engine...</span>
-              </div>
-            )}
+              <p className="text-[10px] text-slate-400 font-mono truncate">ASSAC Neural Hub</p>
+            </div>
           </div>
 
-          {/* Chat Input Form */}
-          <form onSubmit={handleSendChat} className="p-3 bg-white border-t border-slate-200 flex items-center gap-2">
+          <button 
+            onClick={() => setSidebarOpen(false)}
+            className="p-1 rounded-md text-slate-400 hover:text-white hover:bg-slate-800 transition-colors cursor-pointer"
+            title="Collapse Sidebar"
+          >
+            <PanelLeftClose className="h-4 w-4" />
+          </button>
+        </div>
+
+        {/* New Chat Button */}
+        <div className="p-3">
+          <button
+            onClick={handleCreateNewChat}
+            className="w-full flex items-center justify-between px-3 py-2.5 rounded-xl bg-indigo-600 hover:bg-indigo-500 text-white font-bold text-xs shadow-sm hover:shadow-indigo-500/20 transition-all cursor-pointer group"
+          >
+            <div className="flex items-center gap-2">
+              <Plus className="h-4 w-4 group-hover:rotate-90 transition-transform" />
+              <span>New Chat</span>
+            </div>
+            <span className="text-[10px] font-mono bg-indigo-700/60 px-1.5 py-0.5 rounded text-indigo-200">
+              Ctrl+K
+            </span>
+          </button>
+        </div>
+
+        {/* Search Chats Input */}
+        <div className="px-3 pb-2">
+          <div className="relative">
+            <Search className="h-3.5 w-3.5 absolute left-2.5 top-2.5 text-slate-500" />
             <input
               type="text"
-              placeholder="Ask anything, draft memo, analyze code, or query satellite data..."
-              value={inputPrompt}
-              onChange={(e) => setInputPrompt(e.target.value)}
-              className="flex-1 px-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-slate-900 text-xs focus:outline-none focus:border-indigo-500 font-medium"
+              placeholder="Search chats..."
+              value={searchFilter}
+              onChange={(e) => setSearchFilter(e.target.value)}
+              className="w-full pl-8 pr-3 py-1.5 text-xs bg-[#0d1117] border border-slate-800 rounded-lg text-slate-300 placeholder-slate-500 focus:outline-none focus:border-indigo-500"
             />
-            <button
-              type="submit"
-              disabled={isGeneratingChat || !inputPrompt.trim()}
-              className="px-4 py-2.5 bg-indigo-600 hover:bg-indigo-700 disabled:opacity-50 text-white font-extrabold text-xs rounded-xl shadow-xs flex items-center gap-1.5 cursor-pointer"
-            >
-              <Send className="h-3.5 w-3.5" />
-              <span>Send Query</span>
-            </button>
-          </form>
+          </div>
         </div>
-      )}
 
-      {/* --- TOOL 2: INSTANT IMAGE GENERATOR --- */}
-      {activeTab === 'image' && (
-        <div className="bg-white rounded-2xl border border-slate-200 p-6 space-y-6 shadow-sm">
-          <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 border-b border-slate-200 pb-4">
-            <div>
-              <h3 className="text-base font-extrabold text-slate-900 flex items-center gap-2">
-                <Wand2 className="h-5 w-5 text-emerald-600" />
-                Instant Office Image & Diagram Generator
-              </h3>
-              <p className="text-xs text-slate-500 font-medium">
-                Generate simple office visuals, icons, GIS badges, flowcharts, and technical diagrams for instant presentation use.
-              </p>
+        {/* Conversation List */}
+        <div className="flex-1 overflow-y-auto px-2 space-y-1 py-1">
+          <div className="px-2 py-1 text-[10px] font-bold uppercase tracking-wider text-slate-500 font-mono">
+            Conversations ({filteredConversations.length})
+          </div>
+
+          {filteredConversations.map(chat => {
+            const isActive = chat.id === activeChatId;
+            return (
+              <div
+                key={chat.id}
+                onClick={() => {
+                  setActiveChatId(chat.id);
+                  setActiveMode('chat');
+                }}
+                className={`group flex items-center justify-between px-2.5 py-2 rounded-xl text-xs cursor-pointer transition-colors ${
+                  isActive 
+                    ? 'bg-slate-800/90 text-white font-semibold border border-slate-700/60 shadow-xs' 
+                    : 'text-slate-400 hover:bg-slate-800/50 hover:text-slate-200'
+                }`}
+              >
+                <div className="flex items-center gap-2 truncate pr-2">
+                  <MessageSquare className={`h-3.5 w-3.5 shrink-0 ${isActive ? 'text-indigo-400' : 'text-slate-500'}`} />
+                  <span className="truncate">{chat.title || 'Untitled Conversation'}</span>
+                </div>
+
+                <button
+                  onClick={(e) => handleDeleteChat(e, chat.id)}
+                  className="opacity-0 group-hover:opacity-100 p-1 text-slate-400 hover:text-rose-400 hover:bg-rose-950/40 rounded transition-all shrink-0 cursor-pointer"
+                  title="Delete Conversation"
+                >
+                  <Trash2 className="h-3 w-3" />
+                </button>
+              </div>
+            );
+          })}
+        </div>
+
+        {/* Sidebar Footer: Cloudflare Status & Parameters */}
+        <div className="p-3 border-t border-slate-800/80 bg-[#11161d] space-y-2">
+          {/* Cloudflare Workers AI Connectivity Pill */}
+          <div className="flex items-center justify-between text-[11px] px-2.5 py-1.5 rounded-lg bg-[#0d1117] border border-slate-800">
+            <div className="flex items-center gap-1.5">
+              <span className="h-2 w-2 rounded-full bg-emerald-400 animate-pulse"></span>
+              <span className="font-semibold text-slate-300">Cloudflare Workers AI</span>
+            </div>
+            <span className="font-mono text-[10px] text-emerald-400">Online</span>
+          </div>
+
+          <div className="flex items-center justify-between">
+            <div className="flex items-center gap-2">
+              <div className="h-7 w-7 rounded-full bg-indigo-900 border border-indigo-700 flex items-center justify-center font-bold text-xs text-indigo-200">
+                {user.name ? user.name[0] : 'U'}
+              </div>
+              <div className="truncate">
+                <p className="text-xs font-bold text-white truncate">{user.name || user.username}</p>
+                <p className="text-[10px] text-slate-400 font-mono truncate">{user.role}</p>
+              </div>
+            </div>
+
+            <button
+              onClick={() => setSettingsModalOpen(true)}
+              className="p-1.5 text-slate-400 hover:text-white hover:bg-slate-800 rounded-lg transition-colors cursor-pointer"
+              title="Assistant Parameters & System Instructions"
+            >
+              <Sliders className="h-4 w-4" />
+            </button>
+          </div>
+        </div>
+      </aside>
+
+      {/* ============================================================ */}
+      {/* 2. MAIN OPEN WEBUI PLAYGROUND AREA */}
+      {/* ============================================================ */}
+      <main className="flex-1 flex flex-col overflow-hidden bg-[#0d1117] relative">
+        
+        {/* Top Open WebUI Control Bar */}
+        <header className="h-14 border-b border-slate-800/80 bg-[#161b22]/90 backdrop-blur-md px-4 flex items-center justify-between gap-3 shrink-0 z-10">
+          <div className="flex items-center gap-3">
+            {!sidebarOpen && (
+              <button
+                onClick={() => setSidebarOpen(true)}
+                className="p-1.5 rounded-lg text-slate-400 hover:text-white hover:bg-slate-800 transition-colors cursor-pointer"
+                title="Expand Sidebar"
+              >
+                <PanelLeft className="h-4 w-4" />
+              </button>
+            )}
+
+            {/* Model Selector Dropdown */}
+            <div className="flex items-center gap-1.5 bg-[#0d1117] border border-slate-800 rounded-xl px-3 py-1.5 text-xs text-slate-200 shadow-2xs hover:border-slate-700 transition-colors">
+              <Cpu className="h-3.5 w-3.5 text-indigo-400 shrink-0" />
+              <select
+                value={selectedModel}
+                onChange={(e) => setSelectedModel(e.target.value)}
+                className="bg-transparent font-bold text-white focus:outline-none cursor-pointer text-xs pr-1"
+              >
+                <option value="@cf/meta/llama-3.1-8b-instruct" className="bg-[#161b22] text-white">
+                  Meta Llama 3.1 8B Instruct (Default)
+                </option>
+                <option value="@cf/meta/llama-3-8b-instruct" className="bg-[#161b22] text-white">
+                  Meta Llama 3 8B Instruct
+                </option>
+                <option value="@cf/mistral/mistral-7b-instruct-v0.1" className="bg-[#161b22] text-white">
+                  Mistral 7B Instruct v0.1
+                </option>
+                <option value="@cf/qwen/qwen1.5-7b-chat-awq" className="bg-[#161b22] text-white">
+                  Qwen 1.5 7B Chat
+                </option>
+                <option value="@cf/deepseek-ai/deepseek-math-7b-instruct" className="bg-[#161b22] text-white">
+                  DeepSeek Math 7B
+                </option>
+              </select>
             </div>
           </div>
 
-          <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 text-xs">
-            {/* Prompt Controls */}
-            <div className="space-y-4">
-              <div>
-                <label className="block font-extrabold text-slate-800 mb-1">Image Prompt Description</label>
-                <textarea
-                  rows={4}
-                  value={imagePrompt}
-                  onChange={(e) => setImagePrompt(e.target.value)}
-                  placeholder="Describe the image, icon, or diagram to generate..."
-                  className="w-full p-3 bg-slate-50 border border-slate-200 rounded-xl text-slate-900 text-xs focus:outline-none focus:border-emerald-500 font-medium"
-                />
-              </div>
+          {/* Mode Switcher Tabs (Chat / Image Studio / Slide Deck) */}
+          <div className="flex items-center gap-1 bg-[#0d1117] p-1 rounded-xl border border-slate-800">
+            <button
+              onClick={() => setActiveMode('chat')}
+              className={`flex items-center gap-1.5 px-3 py-1 rounded-lg text-xs font-bold transition-all cursor-pointer ${
+                activeMode === 'chat'
+                  ? 'bg-indigo-600 text-white shadow-xs'
+                  : 'text-slate-400 hover:text-slate-200'
+              }`}
+            >
+              <MessageSquare className="h-3.5 w-3.5" />
+              <span className="hidden sm:inline">Chat</span>
+            </button>
 
-              <div className="grid grid-cols-2 gap-3">
-                <div>
-                  <label className="block font-extrabold text-slate-800 mb-1">Visual Style</label>
-                  <select
-                    value={imageStyle}
-                    onChange={(e) => setImageStyle(e.target.value)}
-                    className="w-full p-2.5 bg-slate-50 border border-slate-200 rounded-xl text-slate-900 text-xs font-bold focus:outline-none"
+            <button
+              onClick={() => setActiveMode('image')}
+              className={`flex items-center gap-1.5 px-3 py-1 rounded-lg text-xs font-bold transition-all cursor-pointer ${
+                activeMode === 'image'
+                  ? 'bg-cyan-600 text-white shadow-xs'
+                  : 'text-slate-400 hover:text-slate-200'
+              }`}
+            >
+              <ImageIcon className="h-3.5 w-3.5" />
+              <span className="hidden sm:inline">Image Studio</span>
+            </button>
+
+            <button
+              onClick={() => setActiveMode('presentation')}
+              className={`flex items-center gap-1.5 px-3 py-1 rounded-lg text-xs font-bold transition-all cursor-pointer ${
+                activeMode === 'presentation'
+                  ? 'bg-amber-600 text-white shadow-xs'
+                  : 'text-slate-400 hover:text-slate-200'
+              }`}
+            >
+              <Presentation className="h-3.5 w-3.5" />
+              <span className="hidden sm:inline">Presentation Deck</span>
+            </button>
+          </div>
+
+          {/* Right Header Status */}
+          <div className="hidden md:flex items-center gap-2">
+            <button
+              onClick={() => setSettingsModalOpen(true)}
+              className="flex items-center gap-1.5 px-2.5 py-1 text-xs text-slate-400 hover:text-white bg-[#0d1117] border border-slate-800 rounded-lg hover:border-slate-700 transition-colors cursor-pointer"
+            >
+              <Sliders className="h-3.5 w-3.5 text-indigo-400" />
+              <span>Params</span>
+            </button>
+          </div>
+        </header>
+
+        {/* ============================================================ */}
+        {/* MODE A: CONVERSATIONAL CHAT (OPEN WEBUI) */}
+        {/* ============================================================ */}
+        {activeMode === 'chat' && (
+          <div className="flex-1 flex flex-col overflow-hidden relative">
+            
+            {/* Messages Scroll Area */}
+            <div className="flex-1 overflow-y-auto px-4 md:px-8 py-6 space-y-6">
+              
+              {/* Empty State Banner (Open WebUI Home) */}
+              {activeConversation.messages.length === 0 && (
+                <div className="max-w-3xl mx-auto py-10 md:py-16 text-center space-y-6 animate-fadeIn">
+                  <div className="h-16 w-16 mx-auto rounded-2xl bg-gradient-to-tr from-indigo-600 to-cyan-500 p-0.5 shadow-xl shadow-indigo-500/10">
+                    <div className="w-full h-full bg-[#161b22] rounded-2xl flex items-center justify-center">
+                      <Sparkles className="h-8 w-8 text-cyan-400 animate-pulse" />
+                    </div>
+                  </div>
+
+                  <div className="space-y-2">
+                    <h2 className="text-2xl md:text-3xl font-extrabold text-white tracking-tight">
+                      How can I help you today?
+                    </h2>
+                    <p className="text-xs md:text-sm text-slate-400 max-w-lg mx-auto">
+                      Connected to <span className="text-indigo-400 font-semibold">Cloudflare Workers AI</span> running <span className="font-mono text-cyan-300">Llama 3.1 8B Instruct</span>. Direct assistance for Assam State Space Application Centre.
+                    </p>
+                  </div>
+
+                  {/* Suggestion Cards */}
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 pt-4 text-left max-w-2xl mx-auto">
+                    {PROMPT_SUGGESTIONS.map((item, idx) => (
+                      <div
+                        key={idx}
+                        onClick={() => handleSendMessage(item.prompt)}
+                        className="p-3.5 rounded-xl bg-[#161b22] hover:bg-[#1f242d] border border-slate-800/80 hover:border-slate-700 transition-all cursor-pointer group shadow-2xs"
+                      >
+                        <h4 className="text-xs font-bold text-slate-200 group-hover:text-cyan-400 transition-colors flex items-center justify-between">
+                          <span>{item.title}</span>
+                          <ArrowUp className="h-3 w-3 rotate-45 opacity-0 group-hover:opacity-100 transition-opacity" />
+                        </h4>
+                        <p className="text-[11px] text-slate-400 mt-1 leading-relaxed">
+                          {item.desc}
+                        </p>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              )}
+
+              {/* Chat Message Bubbles */}
+              {activeConversation.messages.map(msg => {
+                const isUser = msg.role === 'user';
+                return (
+                  <div 
+                    key={msg.id} 
+                    className={`flex gap-3 max-w-4xl mx-auto ${isUser ? 'justify-end' : 'justify-start'}`}
                   >
-                    <option value="Technical Vector">Technical Vector Diagram</option>
-                    <option value="Satellite Concept">Satellite Earth Orbit Concept</option>
-                    <option value="Official Badge">ASSAC Emblem / Badge</option>
-                    <option value="Flowchart Graphic">Flowchart & Process Graphic</option>
-                  </select>
-                </div>
+                    {!isUser && (
+                      <div className="h-8 w-8 rounded-xl bg-indigo-600/30 border border-indigo-500/40 flex items-center justify-center shrink-0 text-cyan-300 mt-0.5">
+                        <Bot className="h-4 w-4" />
+                      </div>
+                    )}
 
-                <div>
-                  <label className="block font-extrabold text-slate-800 mb-1">Format</label>
-                  <input
-                    type="text"
-                    disabled
-                    value="SVG Vector / High-Res PNG"
-                    className="w-full p-2.5 bg-slate-100 border border-slate-200 rounded-xl text-slate-500 text-xs font-mono"
-                  />
-                </div>
-              </div>
+                    <div className={`space-y-1.5 max-w-[85%] sm:max-w-[78%] ${isUser ? 'items-end' : 'items-start'}`}>
+                      {/* Bubble */}
+                      <div
+                        className={`p-4 rounded-2xl text-xs sm:text-sm leading-relaxed transition-all ${
+                          isUser
+                            ? 'bg-indigo-600 text-white rounded-br-xs shadow-md shadow-indigo-600/10'
+                            : msg.isError
+                            ? 'bg-rose-950/40 border border-rose-800 text-rose-200 rounded-bl-xs'
+                            : 'bg-[#161b22] text-slate-200 border border-slate-800 rounded-bl-xs shadow-2xs'
+                        }`}
+                      >
+                        <div className="whitespace-pre-wrap break-words font-sans">
+                          {msg.content}
+                        </div>
+                      </div>
 
-              {/* Quick Presets */}
-              <div className="space-y-1.5">
-                <span className="font-extrabold text-slate-800 block">Quick Task Presets:</span>
-                <div className="flex flex-wrap gap-1.5">
-                  {[
-                    "ASSAC GIS Remote Sensing Emblem",
-                    "Assam River Basin Satellite Orbit Diagram",
-                    "Office Attendance Workflow Chart",
-                    "GIS Land Cover Vector Icon"
-                  ].map(p => (
-                    <button
-                      key={p}
-                      onClick={() => setImagePrompt(p)}
-                      className="px-3 py-1 bg-slate-50 border border-slate-200 hover:border-emerald-400 rounded-lg text-[11px] text-slate-700 font-bold transition-colors cursor-pointer"
-                    >
-                      {p}
-                    </button>
-                  ))}
-                </div>
-              </div>
+                      {/* Footer Actions */}
+                      <div className={`flex items-center gap-2 text-[10px] text-slate-500 px-1 font-mono ${isUser ? 'justify-end' : 'justify-start'}`}>
+                        <span>{msg.timestamp}</span>
+                        {!isUser && !msg.isError && (
+                          <>
+                            <span>•</span>
+                            <span className="text-slate-400">{msg.model?.split('/').pop() || 'Llama 3.1'}</span>
+                            <button
+                              onClick={() => handleCopyMessage(msg.id, msg.content)}
+                              className="p-1 hover:text-slate-300 rounded transition-colors cursor-pointer"
+                              title="Copy response"
+                            >
+                              {copiedMessageId === msg.id ? (
+                                <Check className="h-3 w-3 text-emerald-400" />
+                              ) : (
+                                <Copy className="h-3 w-3" />
+                              )}
+                            </button>
+                          </>
+                        )}
+                      </div>
+                    </div>
 
-              <button
-                onClick={handleGenerateImage}
-                disabled={isGeneratingImage || !imagePrompt.trim()}
-                className="w-full py-3 bg-emerald-600 hover:bg-emerald-700 disabled:opacity-50 text-white font-extrabold text-xs rounded-xl shadow-xs flex items-center justify-center gap-2 cursor-pointer transition-colors"
-              >
-                {isGeneratingImage ? <RefreshCw className="h-4 w-4 animate-spin" /> : <Wand2 className="h-4 w-4" />}
-                <span>{isGeneratingImage ? 'Generating Image Graphics...' : 'Generate Instant Visual'}</span>
-              </button>
+                    {isUser && (
+                      <div className="h-8 w-8 rounded-xl bg-slate-800 border border-slate-700 flex items-center justify-center shrink-0 text-white font-bold text-xs mt-0.5">
+                        {user.name ? user.name[0] : 'U'}
+                      </div>
+                    )}
+                  </div>
+                );
+              })}
+
+              {/* Generating Animation */}
+              {isGenerating && (
+                <div className="flex gap-3 max-w-4xl mx-auto justify-start animate-fadeIn">
+                  <div className="h-8 w-8 rounded-xl bg-indigo-600/30 border border-indigo-500/40 flex items-center justify-center shrink-0 text-cyan-300">
+                    <Sparkles className="h-4 w-4 animate-spin" />
+                  </div>
+                  <div className="p-4 rounded-2xl bg-[#161b22] border border-slate-800 text-slate-300 text-xs flex items-center gap-2.5 shadow-2xs">
+                    <RefreshCw className="h-3.5 w-3.5 animate-spin text-cyan-400" />
+                    <span className="font-mono text-slate-400">
+                      Cloudflare Workers AI processing with {selectedModel.split('/').pop()}...
+                    </span>
+                  </div>
+                </div>
+              )}
+
+              <div ref={messagesEndRef} />
             </div>
 
-            {/* Generated Canvas Preview Box */}
-            <div className="bg-slate-50 border border-slate-200 rounded-xl p-5 flex flex-col items-center justify-center text-center space-y-4 min-h-[300px]">
-              {generatedImageSvg ? (
-                <div className="w-full space-y-4 animate-fadeIn">
-                  <div className="bg-white p-6 rounded-2xl border border-slate-200 text-slate-900 space-y-4 shadow-sm relative overflow-hidden">
-                    <div className="h-28 w-28 mx-auto rounded-full bg-emerald-50 border-2 border-emerald-400 flex items-center justify-center relative shadow-inner">
-                      <Layers className="h-12 w-12 text-emerald-600 animate-pulse" />
-                      <div className="absolute inset-0 rounded-full border border-dashed border-indigo-400 animate-spin" style={{ animationDuration: '12s' }}></div>
-                    </div>
+            {/* Bottom Open WebUI Floating Input Bar */}
+            <div className="p-4 bg-gradient-to-t from-[#0d1117] via-[#0d1117]/90 to-transparent">
+              <div className="max-w-4xl mx-auto relative bg-[#161b22] border border-slate-800 rounded-2xl p-2 shadow-xl focus-within:border-indigo-500/70 transition-colors">
+                <textarea
+                  ref={textareaRef}
+                  rows={1}
+                  value={inputMessage}
+                  onChange={handleInputChange}
+                  onKeyDown={handleKeyDown}
+                  placeholder={`Message ${selectedModel.split('/').pop()} on Cloudflare Workers AI... (Shift+Enter for new line)`}
+                  className="w-full bg-transparent text-slate-100 placeholder-slate-500 text-xs sm:text-sm p-2 focus:outline-none resize-none max-h-48 overflow-y-auto"
+                />
 
-                    <div className="space-y-1">
-                      <h4 className="font-extrabold text-slate-900 text-sm tracking-tight">{generatedImageSvg.title}</h4>
-                      <p className="text-[11px] text-slate-500 font-mono">Style: {generatedImageSvg.style} • Created: {generatedImageSvg.timestamp}</p>
-                    </div>
+                <div className="flex items-center justify-between pt-1 border-t border-slate-800/60 px-1">
+                  <div className="flex items-center gap-1.5 text-[11px] text-slate-400 font-mono">
+                    <span className="px-1.5 py-0.5 rounded bg-[#0d1117] border border-slate-800 text-slate-300 text-[10px]">
+                      {selectedModel.split('/').pop()}
+                    </span>
+                    <span className="hidden sm:inline">• Cloudflare Token Active</span>
                   </div>
 
                   <button
-                    onClick={handleDownloadImage}
-                    className="px-4 py-2.5 bg-indigo-600 hover:bg-indigo-700 text-white font-extrabold text-xs rounded-xl shadow-xs flex items-center justify-center gap-2 mx-auto cursor-pointer"
+                    onClick={() => handleSendMessage()}
+                    disabled={!inputMessage.trim() || isGenerating}
+                    className={`h-8 w-8 rounded-xl flex items-center justify-center transition-all cursor-pointer ${
+                      inputMessage.trim() && !isGenerating
+                        ? 'bg-indigo-600 hover:bg-indigo-500 text-white shadow-sm'
+                        : 'bg-slate-800 text-slate-500 cursor-not-allowed'
+                    }`}
                   >
-                    <Download className="h-4 w-4" />
-                    <span>Download SVG / Vector File</span>
+                    <ArrowUp className="h-4 w-4" />
                   </button>
                 </div>
+              </div>
+
+              <p className="text-[10px] text-slate-500 text-center mt-2 font-mono">
+                ASSAC Intranet AI Playground • Cloudflare Workers AI (Account: {cfStatus.accountId || 'a5b225b1...'})
+              </p>
+            </div>
+
+          </div>
+        )}
+
+        {/* ============================================================ */}
+        {/* MODE B: IMAGE STUDIO (STABLE DIFFUSION XL) */}
+        {/* ============================================================ */}
+        {activeMode === 'image' && (
+          <div className="flex-1 overflow-y-auto p-4 sm:p-6 space-y-6 max-w-5xl mx-auto w-full">
+            <div className="bg-[#161b22] p-5 rounded-2xl border border-slate-800 shadow-2xs space-y-4">
+              <div className="flex items-center justify-between">
+                <div className="flex items-center gap-2.5">
+                  <div className="h-8 w-8 rounded-lg bg-cyan-600/30 border border-cyan-500/40 flex items-center justify-center text-cyan-400">
+                    <ImageIcon className="h-4 w-4" />
+                  </div>
+                  <div>
+                    <h3 className="text-sm font-extrabold text-white">Cloudflare SDXL Image Studio</h3>
+                    <p className="text-xs text-slate-400 font-mono">@cf/stabilityai/stable-diffusion-xl-base-1.0</p>
+                  </div>
+                </div>
+                <span className="px-2 py-0.5 rounded-full text-[10px] font-mono font-bold bg-cyan-950 text-cyan-300 border border-cyan-800">
+                  1024x1024 Native
+                </span>
+              </div>
+
+              {/* Prompt Input */}
+              <div className="space-y-2">
+                <label className="text-xs font-bold text-slate-300">Prompt Description</label>
+                <textarea
+                  rows={3}
+                  value={imagePrompt}
+                  onChange={(e) => setImagePrompt(e.target.value)}
+                  placeholder="Describe the image to synthesize (e.g. Official ASSAC GIS Remote Sensing Logo Badge with Earth Orbit Satellite, 8k resolution, vector details...)"
+                  className="w-full p-3 rounded-xl bg-[#0d1117] border border-slate-800 text-xs sm:text-sm text-slate-100 placeholder-slate-500 focus:outline-none focus:border-cyan-500 resize-none"
+                />
+              </div>
+
+              {/* Style Presets */}
+              <div className="flex flex-wrap items-center justify-between gap-3">
+                <div className="flex items-center gap-2">
+                  <span className="text-xs text-slate-400 font-medium">Style Preset:</span>
+                  {['Technical Vector', 'Photorealistic', 'Orbital View'].map(st => (
+                    <button
+                      key={st}
+                      onClick={() => setImageStyle(st)}
+                      className={`px-2.5 py-1 rounded-lg text-xs font-bold transition-colors cursor-pointer ${
+                        imageStyle === st
+                          ? 'bg-cyan-600 text-white'
+                          : 'bg-[#0d1117] text-slate-400 hover:text-white border border-slate-800'
+                      }`}
+                    >
+                      {st}
+                    </button>
+                  ))}
+                </div>
+
+                <button
+                  onClick={handleGenerateImage}
+                  disabled={!imagePrompt.trim() || isGeneratingImage}
+                  className={`flex items-center gap-2 px-5 py-2.5 rounded-xl text-xs font-extrabold transition-all cursor-pointer ${
+                    imagePrompt.trim() && !isGeneratingImage
+                      ? 'bg-cyan-600 hover:bg-cyan-500 text-white shadow-md shadow-cyan-600/20'
+                      : 'bg-slate-800 text-slate-500 cursor-not-allowed'
+                  }`}
+                >
+                  {isGeneratingImage ? (
+                    <>
+                      <RefreshCw className="h-4 w-4 animate-spin text-white" />
+                      <span>Synthesizing (10-15s)...</span>
+                    </>
+                  ) : (
+                    <>
+                      <Sparkles className="h-4 w-4" />
+                      <span>Synthesize with SDXL</span>
+                    </>
+                  )}
+                </button>
+              </div>
+            </div>
+
+            {/* Generated Image Gallery */}
+            <div className="space-y-4">
+              <h3 className="text-xs font-bold uppercase tracking-wider text-slate-400 font-mono">
+                Generated Gallery ({generatedImages.length})
+              </h3>
+
+              {generatedImages.length === 0 ? (
+                <div className="p-12 text-center border border-dashed border-slate-800 rounded-2xl bg-[#161b22]/40 text-slate-500 text-xs">
+                  No images synthesized yet. Enter a prompt above and click Synthesize.
+                </div>
               ) : (
-                <div className="space-y-2 text-slate-400">
-                  <ImageIcon className="h-12 w-12 mx-auto text-slate-300" />
-                  <p className="font-extrabold text-slate-700 text-xs">No image generated yet</p>
-                  <p className="text-[11px] text-slate-500">Enter a prompt and click "Generate Instant Visual" to render SVG graphic.</p>
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  {generatedImages.map(img => (
+                    <div key={img.id} className="bg-[#161b22] border border-slate-800 rounded-2xl overflow-hidden group shadow-2xs">
+                      <div className="relative aspect-square bg-[#0d1117] overflow-hidden">
+                        <img 
+                          src={img.dataUrl} 
+                          alt={img.prompt} 
+                          className="w-full h-full object-cover group-hover:scale-102 transition-transform duration-300" 
+                        />
+                        <div className="absolute top-2 right-2 flex items-center gap-1.5 opacity-0 group-hover:opacity-100 transition-opacity">
+                          <a
+                            href={img.dataUrl}
+                            download={`ASSAC_AI_${img.id}.png`}
+                            className="p-2 rounded-lg bg-black/70 hover:bg-black text-white text-xs backdrop-blur-md transition-colors"
+                            title="Download High-Res PNG"
+                          >
+                            <Download className="h-4 w-4" />
+                          </a>
+                        </div>
+                      </div>
+                      <div className="p-3.5 space-y-1">
+                        <p className="text-xs font-bold text-white line-clamp-2">{img.prompt}</p>
+                        <div className="flex items-center justify-between text-[10px] text-slate-400 font-mono">
+                          <span className="px-1.5 py-0.2 rounded bg-cyan-950 text-cyan-300 border border-cyan-800">{img.style}</span>
+                          <span>{img.createdAt}</span>
+                        </div>
+                      </div>
+                    </div>
+                  ))}
                 </div>
               )}
             </div>
           </div>
-        </div>
-      )}
+        )}
 
-      {/* --- TOOL 3: AI PRESENTATION (PPT) GENERATOR --- */}
-      {activeTab === 'ppt' && (
-        <div className="bg-white rounded-2xl border border-slate-200 p-6 space-y-6 shadow-sm">
-          <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 border-b border-slate-200 pb-4">
-            <div>
-              <h3 className="text-base font-extrabold text-slate-900 flex items-center gap-2">
-                <Presentation className="h-5 w-5 text-indigo-600" />
-                Automated Presentation (PPT) Generator
-              </h3>
-              <p className="text-xs text-slate-500 font-medium">
-                Auto-generate structured presentation slide decks with agendas, bullet points, metrics, and downloadable outlines.
-              </p>
-            </div>
-          </div>
-
-          <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 text-xs">
-            {/* Form Inputs */}
-            <div className="space-y-4 lg:col-span-1">
-              <div>
-                <label className="block font-extrabold text-slate-800 mb-1">Presentation Topic / Report Title</label>
-                <input
-                  type="text"
-                  value={pptTopic}
-                  onChange={(e) => setPptTopic(e.target.value)}
-                  placeholder="e.g. Monthly Remote Sensing Progress Report"
-                  className="w-full p-3 bg-slate-50 border border-slate-200 rounded-xl text-slate-900 text-xs font-medium focus:outline-none focus:border-indigo-500"
-                />
+        {/* ============================================================ */}
+        {/* MODE C: PRESENTATION DECK GENERATOR */}
+        {/* ============================================================ */}
+        {activeMode === 'presentation' && (
+          <div className="flex-1 overflow-y-auto p-4 sm:p-6 space-y-6 max-w-5xl mx-auto w-full">
+            <div className="bg-[#161b22] p-5 rounded-2xl border border-slate-800 shadow-2xs space-y-4">
+              <div className="flex items-center justify-between">
+                <div className="flex items-center gap-2.5">
+                  <div className="h-8 w-8 rounded-lg bg-amber-600/30 border border-amber-500/40 flex items-center justify-center text-amber-400">
+                    <Presentation className="h-4 w-4" />
+                  </div>
+                  <div>
+                    <h3 className="text-sm font-extrabold text-white">AI Executive Slide Deck Generator</h3>
+                    <p className="text-xs text-slate-400 font-mono">Structured JSON Output via Llama 3.1 8B</p>
+                  </div>
+                </div>
               </div>
 
-              <div>
-                <label className="block font-extrabold text-slate-800 mb-1">Slide Count</label>
-                <select
-                  value={slideCount}
-                  onChange={(e) => setSlideCount(Number(e.target.value))}
-                  className="w-full p-2.5 bg-slate-50 border border-slate-200 rounded-xl text-slate-900 text-xs font-bold focus:outline-none"
-                >
-                  <option value={3}>3 Slides (Brief Summary Deck)</option>
-                  <option value={5}>5 Slides (Standard Executive Review)</option>
-                  <option value={8}>8 Slides (Detailed Departmental Presentation)</option>
-                </select>
+              <div className="grid grid-cols-1 sm:grid-cols-4 gap-3">
+                <div className="sm:col-span-3 space-y-1">
+                  <label className="text-xs font-bold text-slate-300">Presentation Topic / Project Directive</label>
+                  <input
+                    type="text"
+                    value={pptTopic}
+                    onChange={(e) => setPptTopic(e.target.value)}
+                    placeholder="e.g. Quarterly Assam GIS Satellite Survey & Infrastructure Assessment"
+                    className="w-full p-2.5 rounded-xl bg-[#0d1117] border border-slate-800 text-xs sm:text-sm text-slate-100 placeholder-slate-500 focus:outline-none focus:border-amber-500"
+                  />
+                </div>
+
+                <div className="space-y-1">
+                  <label className="text-xs font-bold text-slate-300">Slide Count</label>
+                  <select
+                    value={pptSlideCount}
+                    onChange={(e) => setPptSlideCount(Number(e.target.value))}
+                    className="w-full p-2.5 rounded-xl bg-[#0d1117] border border-slate-800 text-xs sm:text-sm text-slate-100 focus:outline-none focus:border-amber-500"
+                  >
+                    {[3, 4, 5, 6, 7, 8].map(n => (
+                      <option key={n} value={n}>{n} Slides</option>
+                    ))}
+                  </select>
+                </div>
               </div>
 
               <button
-                onClick={handleGeneratePpt}
-                disabled={isGeneratingPpt || !pptTopic.trim()}
-                className="w-full py-3 bg-indigo-600 hover:bg-indigo-700 disabled:opacity-50 text-white font-extrabold text-xs rounded-xl shadow-xs flex items-center justify-center gap-2 cursor-pointer transition-colors"
+                onClick={handleGenerateDeck}
+                disabled={!pptTopic.trim() || isGeneratingPpt}
+                className={`flex items-center gap-2 px-5 py-2.5 rounded-xl text-xs font-extrabold transition-all cursor-pointer ${
+                  pptTopic.trim() && !isGeneratingPpt
+                    ? 'bg-amber-600 hover:bg-amber-500 text-white shadow-md shadow-amber-600/20'
+                    : 'bg-slate-800 text-slate-500 cursor-not-allowed'
+                }`}
               >
-                {isGeneratingPpt ? <RefreshCw className="h-4 w-4 animate-spin" /> : <Zap className="h-4 w-4 text-amber-300" />}
-                <span>{isGeneratingPpt ? 'Generating Slide Deck...' : 'Generate Presentation Deck'}</span>
+                {isGeneratingPpt ? (
+                  <>
+                    <RefreshCw className="h-4 w-4 animate-spin text-white" />
+                    <span>Structuring Slide Deck...</span>
+                  </>
+                ) : (
+                  <>
+                    <Sparkles className="h-4 w-4" />
+                    <span>Generate Presentation Slides</span>
+                  </>
+                )}
               </button>
             </div>
 
-            {/* Generated PPT Outline Preview */}
-            <div className="lg:col-span-2 bg-slate-50 border border-slate-200 rounded-xl p-5 min-h-[300px] flex flex-col justify-between">
-              {generatedDeck ? (
-                <div className="space-y-4 animate-fadeIn">
-                  <div className="flex items-center justify-between border-b border-slate-200 pb-3 flex-wrap gap-2">
-                    <div>
-                      <h4 className="font-extrabold text-slate-900 text-sm">{generatedDeck.topic}</h4>
-                      <span className="text-[11px] text-slate-500 font-medium">{generatedDeck.slidesCount} Slides Generated</span>
-                    </div>
+            {/* Rendered Slide Deck */}
+            {currentDeck && currentDeck.slides && (
+              <div className="space-y-4 animate-fadeIn">
+                <div className="flex items-center justify-between">
+                  <h3 className="text-sm font-extrabold text-white">
+                    {currentDeck.topic} ({currentDeck.slides.length} Slides)
+                  </h3>
+                  <button
+                    onClick={() => {
+                      const text = JSON.stringify(currentDeck, null, 2);
+                      navigator.clipboard.writeText(text);
+                      alert('Slide Deck JSON copied to clipboard!');
+                    }}
+                    className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-[#161b22] hover:bg-[#1f242d] border border-slate-800 text-xs text-slate-300 cursor-pointer"
+                  >
+                    <Copy className="h-3.5 w-3.5" />
+                    <span>Copy JSON</span>
+                  </button>
+                </div>
 
-                    <button
-                      onClick={handleDownloadPpt}
-                      className="px-3 py-1.5 bg-emerald-600 hover:bg-emerald-700 text-white font-extrabold text-xs rounded-lg shadow-xs flex items-center gap-1.5 cursor-pointer"
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  {currentDeck.slides.map(slide => (
+                    <div 
+                      key={slide.number}
+                      className="p-5 rounded-2xl bg-[#161b22] border border-slate-800 shadow-2xs space-y-3 relative overflow-hidden"
                     >
-                      <Download className="h-3.5 w-3.5" />
-                      <span>Download PPT Outline</span>
-                    </button>
-                  </div>
+                      <div className="flex items-center justify-between">
+                        <span className="px-2 py-0.5 rounded-full text-[10px] font-mono font-bold bg-amber-950 text-amber-300 border border-amber-800">
+                          Slide #{slide.number}
+                        </span>
+                        <Presentation className="h-4 w-4 text-slate-600" />
+                      </div>
 
-                  <div className="space-y-3 max-h-[360px] overflow-y-auto pr-1">
-                    {generatedDeck.slides.map(slide => (
-                      <div key={slide.number} className="bg-white p-4 rounded-xl border border-slate-200 space-y-2 shadow-2xs">
-                        <div className="flex items-center justify-between text-xs font-extrabold text-indigo-700 border-b border-slate-100 pb-1">
-                          <span>Slide {slide.number}: {slide.title}</span>
-                        </div>
-                        {slide.subtitle && <p className="text-[11px] italic text-slate-500">{slide.subtitle}</p>}
-                        <ul className="list-disc list-inside text-slate-700 text-xs space-y-1 font-medium">
-                          {slide.bullets.map((b, i) => (
-                            <li key={i}>{b}</li>
+                      <div className="space-y-1">
+                        <h4 className="text-base font-extrabold text-white">{slide.title}</h4>
+                        {slide.subtitle && (
+                          <p className="text-xs text-amber-400 font-medium">{slide.subtitle}</p>
+                        )}
+                      </div>
+
+                      {slide.bullets && slide.bullets.length > 0 && (
+                        <ul className="space-y-1.5 text-xs text-slate-300 pt-2 border-t border-slate-800/80">
+                          {slide.bullets.map((b, bi) => (
+                            <li key={bi} className="flex items-start gap-2">
+                              <span className="h-1.5 w-1.5 rounded-full bg-cyan-400 mt-1.5 shrink-0"></span>
+                              <span>{b}</span>
+                            </li>
                           ))}
                         </ul>
-                      </div>
-                    ))}
-                  </div>
+                      )}
+                    </div>
+                  ))}
                 </div>
-              ) : (
-                <div className="m-auto text-center space-y-2 text-slate-400">
-                  <Presentation className="h-12 w-12 mx-auto text-slate-300" />
-                  <p className="font-extrabold text-slate-700 text-xs">No Presentation Generated Yet</p>
-                  <p className="text-[11px] text-slate-500">Enter a topic and click "Generate Presentation Deck".</p>
-                </div>
-              )}
-            </div>
-          </div>
-        </div>
-      )}
-
-      {/* --- TOOL 4: AUDIO-TO-TEXT TRANSCRIPTION --- */}
-      {activeTab === 'audio' && (
-        <div className="bg-white rounded-2xl border border-slate-200 p-6 space-y-6 shadow-sm">
-          <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 border-b border-slate-200 pb-4">
-            <div>
-              <h3 className="text-base font-extrabold text-slate-900 flex items-center gap-2">
-                <Mic className="h-5 w-5 text-indigo-600" />
-                Meeting Audio-to-Text Transcription Desk
-              </h3>
-              <p className="text-xs text-slate-500 font-medium">
-                Upload meeting voice recordings or record live audio to convert speech into formatted text minutes and action items.
-              </p>
-            </div>
-          </div>
-
-          <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 text-xs">
-            {/* Audio Upload Controls */}
-            <div className="space-y-4 lg:col-span-1">
-              <div>
-                <label className="block font-extrabold text-slate-800 mb-1">Select Language</label>
-                <select
-                  value={selectedLanguage}
-                  onChange={(e) => setSelectedLanguage(e.target.value)}
-                  className="w-full p-2.5 bg-slate-50 border border-slate-200 rounded-xl text-slate-900 text-xs font-bold focus:outline-none"
-                >
-                  <option value="English">English (India)</option>
-                  <option value="Assamese">Assamese (অসমীয়া)</option>
-                  <option value="Hindi">Hindi (हिंदी)</option>
-                </select>
               </div>
+            )}
+          </div>
+        )}
 
-              {/* Upload Drop Zone */}
-              <div className="border-2 border-dashed border-slate-300 rounded-xl p-5 text-center space-y-2 bg-slate-50 hover:border-indigo-500 transition-colors">
-                <Mic className="h-8 w-8 mx-auto text-indigo-600" />
-                <p className="font-extrabold text-slate-800 text-xs">Upload Voice Note / Meeting Recording</p>
-                <p className="text-[10px] text-slate-500 font-medium">Supports .mp3, .wav, .m4a files</p>
-                <input
-                  type="file"
-                  accept="audio/*"
-                  onChange={(e) => setUploadedAudioName(e.target.files[0]?.name || '')}
-                  className="hidden"
-                  id="audio-upload-input"
-                />
-                <label
-                  htmlFor="audio-upload-input"
-                  className="inline-block px-3 py-1.5 bg-slate-200 text-slate-800 font-bold text-xs rounded-lg cursor-pointer hover:bg-slate-300 transition-colors"
-                >
-                  Browse File
-                </label>
-                {uploadedAudioName && (
-                  <div className="text-[11px] font-mono text-indigo-700 font-bold">
-                    File Selected: {uploadedAudioName}
-                  </div>
-                )}
+      </main>
+
+      {/* ============================================================ */}
+      {/* 3. ASSISTANT PARAMETERS & SETTINGS MODAL */}
+      {/* ============================================================ */}
+      {settingsModalOpen && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/70 backdrop-blur-sm animate-fadeIn">
+          <div className="bg-[#161b22] border border-slate-800 rounded-2xl max-w-lg w-full p-6 space-y-5 shadow-2xl relative text-slate-100">
+            <div className="flex items-center justify-between pb-3 border-b border-slate-800">
+              <div className="flex items-center gap-2">
+                <Sliders className="h-5 w-5 text-indigo-400" />
+                <h3 className="font-extrabold text-base text-white">Neural Assistant Parameters</h3>
               </div>
-
               <button
-                onClick={handleStartTranscribe}
-                disabled={isTranscribing}
-                className="w-full py-3 bg-indigo-600 hover:bg-indigo-700 disabled:opacity-50 text-white font-extrabold text-xs rounded-xl shadow-xs flex items-center justify-center gap-2 cursor-pointer transition-colors"
+                onClick={() => setSettingsModalOpen(false)}
+                className="p-1 rounded-lg text-slate-400 hover:text-white hover:bg-slate-800 transition-colors cursor-pointer"
               >
-                {isTranscribing ? <RefreshCw className="h-4 w-4 animate-spin" /> : <Mic className="h-4 w-4" />}
-                <span>{isTranscribing ? 'Transcribing Speech...' : 'Transcribe Audio Recording'}</span>
+                <X className="h-4 w-4" />
               </button>
             </div>
 
-            {/* Transcription Output Display */}
-            <div className="lg:col-span-2 bg-slate-50 border border-slate-200 rounded-xl p-5 min-h-[300px] flex flex-col justify-between">
-              {transcriptionResult ? (
-                <div className="space-y-4 animate-fadeIn">
-                  <div className="flex items-center justify-between border-b border-slate-200 pb-3 flex-wrap gap-2">
-                    <div>
-                      <h4 className="font-extrabold text-slate-900 text-sm">Transcript Output: {transcriptionResult.file}</h4>
-                      <span className="text-[11px] text-slate-500 font-medium">Duration: {transcriptionResult.duration} • Language: {transcriptionResult.language}</span>
-                    </div>
+            {/* System Prompt */}
+            <div className="space-y-1.5">
+              <label className="text-xs font-bold text-slate-200">Custom System Instructions</label>
+              <textarea
+                rows={5}
+                value={systemPrompt}
+                onChange={(e) => setSystemPrompt(e.target.value)}
+                className="w-full p-2.5 rounded-xl bg-[#0d1117] border border-slate-800 text-xs text-slate-200 focus:outline-none focus:border-indigo-500 font-mono"
+              />
+              <p className="text-[10px] text-slate-400">Directs the persona and knowledge boundaries of the model.</p>
+            </div>
 
-                    <button
-                      onClick={() => alert('Transcript copied to clipboard!')}
-                      className="px-3 py-1.5 bg-indigo-600 hover:bg-indigo-700 text-white font-extrabold text-xs rounded-lg shadow-xs flex items-center gap-1.5 cursor-pointer"
-                    >
-                      <Copy className="h-3.5 w-3.5" />
-                      <span>Copy Text</span>
-                    </button>
-                  </div>
+            {/* Temperature Slider */}
+            <div className="space-y-1.5">
+              <div className="flex items-center justify-between text-xs">
+                <span className="font-bold text-slate-200">Temperature</span>
+                <span className="font-mono text-indigo-400 font-bold">{temperature}</span>
+              </div>
+              <input
+                type="range"
+                min="0.0"
+                max="1.0"
+                step="0.05"
+                value={temperature}
+                onChange={(e) => setTemperature(Number(e.target.value))}
+                className="w-full accent-indigo-500 cursor-pointer"
+              />
+              <div className="flex justify-between text-[10px] text-slate-500 font-mono">
+                <span>0.0 (Precise / Analytical)</span>
+                <span>1.0 (Creative)</span>
+              </div>
+            </div>
 
-                  {/* Speaker Diarized Log */}
-                  <div className="space-y-2 max-h-[240px] overflow-y-auto pr-1">
-                    {transcriptionResult.transcript.map((row, idx) => (
-                      <div key={idx} className="bg-white p-3 rounded-xl border border-slate-200 text-xs space-y-1 shadow-2xs">
-                        <div className="flex items-center justify-between text-[11px] font-mono text-indigo-700 font-bold">
-                          <span>[{row.time}] {row.speaker}</span>
-                        </div>
-                        <p className="text-slate-800 font-normal leading-relaxed">{row.text}</p>
-                      </div>
-                    ))}
-                  </div>
+            {/* Max Output Tokens */}
+            <div className="space-y-1.5">
+              <div className="flex items-center justify-between text-xs">
+                <span className="font-bold text-slate-200">Max Tokens</span>
+                <span className="font-mono text-cyan-400 font-bold">{maxTokens}</span>
+              </div>
+              <input
+                type="range"
+                min="512"
+                max="4096"
+                step="256"
+                value={maxTokens}
+                onChange={(e) => setMaxTokens(Number(e.target.value))}
+                className="w-full accent-cyan-500 cursor-pointer"
+              />
+            </div>
 
-                  {/* Action Items Box */}
-                  <div className="bg-emerald-50 border border-emerald-200 p-3.5 rounded-xl text-xs space-y-1">
-                    <span className="font-extrabold text-emerald-800 block text-xs">Extracted Action Items:</span>
-                    <ul className="list-disc list-inside text-emerald-900 text-[11px] space-y-0.5 font-medium">
-                      {transcriptionResult.actionItems.map((item, i) => (
-                        <li key={i}>{item}</li>
-                      ))}
-                    </ul>
-                  </div>
-                </div>
-              ) : (
-                <div className="m-auto text-center space-y-2 text-slate-400">
-                  <Mic className="h-12 w-12 mx-auto text-slate-300" />
-                  <p className="font-extrabold text-slate-700 text-xs">No Audio Transcribed Yet</p>
-                  <p className="text-[11px] text-slate-500">Upload a voice file or select demo audio and click "Transcribe Audio Recording".</p>
-                </div>
-              )}
+            <div className="pt-2 flex justify-end gap-2">
+              <button
+                onClick={() => setSystemPrompt(DEFAULT_SYSTEM_PROMPT)}
+                className="px-3 py-1.5 rounded-xl text-xs text-slate-400 hover:text-white hover:bg-slate-800 transition-colors cursor-pointer"
+              >
+                Reset Default
+              </button>
+              <button
+                onClick={() => setSettingsModalOpen(false)}
+                className="px-4 py-1.5 rounded-xl bg-indigo-600 hover:bg-indigo-500 text-white font-bold text-xs shadow-xs transition-colors cursor-pointer"
+              >
+                Save & Close
+              </button>
             </div>
           </div>
         </div>

@@ -224,4 +224,32 @@ export const getEmailStatusApi = async () => {
   return res.data;
 };
 
+// ==========================================
+// 5. CLOUDFLARE WORKERS AI PLAYGROUND (OPEN WEBUI)
+// ==========================================
+export const getAiModels = async () => {
+  const res = await api.get('/ai/models');
+  return res.data;
+};
+
+export const getAiStatus = async () => {
+  const res = await api.get('/ai/status');
+  return res.data;
+};
+
+export const sendAiChat = async ({ messages, model, systemPrompt, temperature, maxTokens }) => {
+  const res = await api.post('/ai/chat', { messages, model, systemPrompt, temperature, maxTokens });
+  return res.data;
+};
+
+export const generateAiImage = async ({ prompt, model, style }) => {
+  const res = await api.post('/ai/image', { prompt, model, style });
+  return res.data;
+};
+
+export const generateAiPresentation = async ({ topic, slideCount }) => {
+  const res = await api.post('/ai/presentation', { topic, slideCount });
+  return res.data;
+};
+
 export default api;
