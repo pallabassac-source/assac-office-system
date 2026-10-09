@@ -27,19 +27,7 @@ import {
   ChevronRight
 } from 'lucide-react';
 import { getAvailablePeriods } from '../services/api';
-
-const OFFICE_ADMIN_TABS = [
-  { id: 'dashboard', label: 'Overview', icon: LayoutDashboard },
-  { id: 'records', label: 'Attendance Ledger', icon: Clock },
-  { id: 'employees', label: 'Staff Directory', icon: Users },
-  { id: 'interns', label: 'Intern Onboarding', icon: GraduationCap },
-  { id: 'certificates', label: 'E-Certificates', icon: Award },
-  { id: 'forms', label: 'Forms Desk', icon: FileText },
-  { id: 'upload', label: 'Excel Ingestion', icon: UploadCloud },
-  { id: 'analytics', label: 'Analytics', icon: BarChart3 },
-  { id: 'exports', label: 'Report Export Center', icon: Download },
-  { id: 'audit', label: 'Audit Trail', icon: ShieldAlert }
-];
+import { OFFICE_ADMIN_NAV_GROUPS, IMS_ADMIN_NAV_GROUPS } from '../config/navigationGroups';
 
 export default function Navbar({ 
   onRefresh, 
@@ -66,6 +54,7 @@ export default function Navbar({
 
   const currentPath = location.pathname;
   const officeAdminActiveTab = searchParams.get('tab') || 'dashboard';
+  const imsAdminActiveTab = searchParams.get('tab') || 'directory';
 
   const handlePortalClick = (targetPath) => {
     navigate(targetPath);
@@ -73,6 +62,10 @@ export default function Navbar({
 
   const handleOfficeAdminTabClick = (tabId) => {
     navigate(`/office-admin?tab=${tabId}`);
+  };
+
+  const handleImsAdminTabClick = (tabId) => {
+    navigate(`/ims-admin?tab=${tabId}`);
   };
 
   const handleBrandClick = () => {
@@ -90,6 +83,7 @@ export default function Navbar({
   };
 
   const isOfficeAdminRoute = currentPath === '/office-admin';
+  const isImsAdminRoute = currentPath === '/ims-admin';
 
   return (
     <header className="bg-white/95 backdrop-blur-md border-b-2 border-indigo-600 text-slate-900 shadow-xs sticky top-0 z-40">
@@ -338,31 +332,128 @@ export default function Navbar({
         </div>
       </div>
 
-      {/* 3. REPOSITIONED OFFICE ADMIN TOP SUB-NAV BAR (Active when on /office-admin) */}
+      {/* 3. GROUPED OFFICE ADMIN TOP SUB-NAV BAR (Active when on /office-admin) */}
       {isOfficeAdminRoute && (
-        <div className="px-4 sm:px-6 py-2 bg-gradient-to-r from-indigo-900 via-indigo-800 to-slate-900 text-white shadow-md flex items-center justify-between gap-3 overflow-x-auto border-t border-indigo-700">
-          <div className="flex items-center gap-1.5 shrink-0">
-            <span className="text-[10px] font-mono font-extrabold text-amber-400 uppercase tracking-widest pr-2 border-r border-indigo-600 flex items-center gap-1">
-              <Building2 className="h-3 w-3" />
+        <div className="px-4 sm:px-6 py-1.5 bg-gradient-to-r from-slate-900 via-indigo-950 to-slate-900 text-white shadow-md flex items-center justify-between gap-3 overflow-x-auto border-t border-indigo-700/80">
+          <div className="flex items-center gap-2.5 shrink-0">
+            <span className="text-[10px] font-mono font-extrabold text-amber-400 uppercase tracking-widest pr-2.5 border-r border-indigo-700/60 flex items-center gap-1.5 shrink-0">
+              <Building2 className="h-3.5 w-3.5 text-amber-400" />
               OFFICE ADMIN
             </span>
 
-            {OFFICE_ADMIN_TABS.map((tab) => {
-              const Icon = tab.icon;
-              const isActive = officeAdminActiveTab === tab.id;
+            {OFFICE_ADMIN_NAV_GROUPS.map((group) => {
+              const isGroupActive = group.tabs.some(t => t.id === officeAdminActiveTab);
+              const isBiometrics = group.id === 'biometrics';
+
               return (
-                <button
-                  key={tab.id}
-                  onClick={() => handleOfficeAdminTabClick(tab.id)}
-                  className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-extrabold transition-all whitespace-nowrap cursor-pointer shrink-0 ${
-                    isActive
-                      ? 'bg-white text-indigo-950 shadow-sm ring-2 ring-amber-400 font-black'
-                      : 'text-indigo-100 hover:bg-indigo-700/60 hover:text-white border border-transparent'
+                <div 
+                  key={group.id} 
+                  className={`flex items-center gap-1 px-1.5 py-0.5 rounded-xl border transition-all shrink-0 ${
+                    isBiometrics 
+                      ? isGroupActive
+                        ? 'bg-indigo-950/90 border-indigo-400 shadow-sm ring-1 ring-indigo-400/40' 
+                        : 'bg-indigo-950/60 border-indigo-500/50 hover:border-indigo-400'
+                      : isGroupActive
+                      ? 'bg-white/10 border-white/20'
+                      : 'bg-white/5 border-white/10'
                   }`}
                 >
-                  <Icon className={`h-3.5 w-3.5 ${isActive ? 'text-indigo-600' : 'text-indigo-300'}`} />
-                  <span>{tab.label}</span>
-                </button>
+                  <span className={`px-1.5 py-0.5 rounded text-[9px] font-mono font-extrabold uppercase tracking-wider shrink-0 ${
+                    isBiometrics
+                      ? 'bg-indigo-600 text-amber-300 font-black shadow-2xs'
+                      : 'bg-white/10 text-slate-300'
+                  }`}>
+                    {group.badgeText}
+                  </span>
+
+                  <div className="flex items-center gap-0.5">
+                    {group.tabs.map((tab) => {
+                      const Icon = tab.icon;
+                      const isActive = officeAdminActiveTab === tab.id;
+                      return (
+                        <button
+                          key={tab.id}
+                          onClick={() => handleOfficeAdminTabClick(tab.id)}
+                          className={`flex items-center gap-1.5 px-2.5 py-1 rounded-lg text-xs font-extrabold transition-all whitespace-nowrap cursor-pointer shrink-0 ${
+                            isActive
+                              ? isBiometrics
+                                ? 'bg-white text-indigo-950 shadow-sm ring-2 ring-amber-400 font-black scale-[1.02]'
+                                : 'bg-white text-slate-900 shadow-sm ring-2 ring-emerald-400 font-black scale-[1.02]'
+                              : 'text-slate-200 hover:bg-white/15 hover:text-white border border-transparent'
+                          }`}
+                          title={tab.desc}
+                        >
+                          <Icon className={`h-3.5 w-3.5 ${isActive ? (isBiometrics ? 'text-indigo-600' : 'text-emerald-600') : 'text-slate-400'}`} />
+                          <span>{tab.shortLabel || tab.label}</span>
+                        </button>
+                      );
+                    })}
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+        </div>
+      )}
+
+      {/* 4. GROUPED IMS ADMIN TOP SUB-NAV BAR (Active when on /ims-admin) */}
+      {isImsAdminRoute && (
+        <div className="px-4 sm:px-6 py-1.5 bg-gradient-to-r from-slate-950 via-sky-950 to-slate-900 text-white shadow-md flex items-center justify-between gap-3 overflow-x-auto border-t border-sky-700/80">
+          <div className="flex items-center gap-2.5 shrink-0">
+            <span className="text-[10px] font-mono font-extrabold text-emerald-400 uppercase tracking-widest pr-2.5 border-r border-sky-700/60 flex items-center gap-1.5 shrink-0">
+              <GraduationCap className="h-3.5 w-3.5 text-emerald-400" />
+              IMS GOVERNANCE
+            </span>
+
+            {IMS_ADMIN_NAV_GROUPS.map((group) => {
+              const isGroupActive = group.tabs.some(t => t.id === imsAdminActiveTab);
+              const isVault = group.id === 'vault';
+
+              return (
+                <div 
+                  key={group.id} 
+                  className={`flex items-center gap-1 px-1.5 py-0.5 rounded-xl border transition-all shrink-0 ${
+                    isVault 
+                      ? isGroupActive
+                        ? 'bg-sky-950/90 border-sky-400 shadow-sm ring-1 ring-sky-400/40' 
+                        : 'bg-sky-950/60 border-sky-500/50 hover:border-sky-400'
+                      : isGroupActive
+                      ? 'bg-white/10 border-white/20'
+                      : 'bg-white/5 border-white/10'
+                  }`}
+                >
+                  <span className={`px-1.5 py-0.5 rounded text-[9px] font-mono font-extrabold uppercase tracking-wider shrink-0 ${
+                    isVault
+                      ? 'bg-sky-600 text-white font-black shadow-2xs'
+                      : 'bg-white/10 text-slate-300'
+                  }`}>
+                    {group.badgeText}
+                  </span>
+
+                  <div className="flex items-center gap-0.5">
+                    {group.tabs.map((tab) => {
+                      const Icon = tab.icon;
+                      const isActive = imsAdminActiveTab === tab.id;
+                      return (
+                        <button
+                          key={tab.id}
+                          onClick={() => handleImsAdminTabClick(tab.id)}
+                          className={`flex items-center gap-1.5 px-2.5 py-1 rounded-lg text-xs font-extrabold transition-all whitespace-nowrap cursor-pointer shrink-0 ${
+                            isActive
+                              ? isVault
+                                ? 'bg-white text-sky-950 shadow-sm ring-2 ring-emerald-400 font-black scale-[1.02]'
+                                : 'bg-white text-indigo-950 shadow-sm ring-2 ring-sky-400 font-black scale-[1.02]'
+                              : 'text-slate-200 hover:bg-white/15 hover:text-white border border-transparent'
+                          }`}
+                          title={tab.desc}
+                        >
+                          <Icon className={`h-3.5 w-3.5 ${isActive ? (isVault ? 'text-sky-600' : 'text-indigo-600') : 'text-slate-400'}`} />
+                          <span>{tab.shortLabel || tab.label}</span>
+                        </button>
+                      );
+                    })}
+                  </div>
+                </div>
               );
             })}
           </div>

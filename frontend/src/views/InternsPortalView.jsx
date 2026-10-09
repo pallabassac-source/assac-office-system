@@ -55,9 +55,32 @@ import {
   HardDrive
 } from 'lucide-react';
 
-export default function InternsPortalView() {
+export default function InternsPortalView({
+  defaultTab = 'directory',
+  autoOpenOnboard = false,
+  autoOpenAddDept = false,
+  autoOpenDocUpload = false
+} = {}) {
   const { user } = useAuth();
-  const [activeSubTab, setActiveSubTab] = useState('directory'); // 'directory' | 'documents' | 'onboarding'
+  const [activeSubTab, setActiveSubTab] = useState(defaultTab); // 'directory' | 'documents' | 'onboarding'
+  
+  useEffect(() => {
+    if (defaultTab) {
+      setActiveSubTab(defaultTab);
+    }
+  }, [defaultTab]);
+
+  useEffect(() => {
+    if (autoOpenOnboard) setShowOnboardModal(true);
+  }, [autoOpenOnboard]);
+
+  useEffect(() => {
+    if (autoOpenAddDept) setShowAddDeptModal(true);
+  }, [autoOpenAddDept]);
+
+  useEffect(() => {
+    if (autoOpenDocUpload) setShowDocUploadModal(true);
+  }, [autoOpenDocUpload]);
   
   // Data States
   const [internsList, setInternsList] = useState([]);
