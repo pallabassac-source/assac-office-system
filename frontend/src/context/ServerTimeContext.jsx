@@ -50,8 +50,9 @@ export function ServerTimeProvider({ children }) {
     return new Date(Date.now() + offsetRef.current);
   };
 
-  // Formatted strings directly based on server date
+  // Formatted strings directly based on server date in Indian Standard Time (IST)
   const timeString12h = nowDate.toLocaleTimeString('en-US', { 
+    timeZone: 'Asia/Kolkata',
     hour: '2-digit', 
     minute: '2-digit', 
     second: '2-digit', 
@@ -59,18 +60,23 @@ export function ServerTimeProvider({ children }) {
   });
 
   const dateStringFormatted = nowDate.toLocaleDateString('en-US', { 
+    timeZone: 'Asia/Kolkata',
     weekday: 'short', 
     month: 'short', 
     day: 'numeric', 
     year: 'numeric' 
   });
 
+  // Calculate IST Month and Year
+  const serverMonth = parseInt(nowDate.toLocaleDateString('en-US', { timeZone: 'Asia/Kolkata', month: 'numeric' }), 10);
+  const serverYear = parseInt(nowDate.toLocaleDateString('en-US', { timeZone: 'Asia/Kolkata', year: 'numeric' }), 10);
+
   return (
     <ServerTimeContext.Provider value={{
       serverDate: nowDate,
       getServerDate,
-      serverMonth: nowDate.getMonth() + 1,
-      serverYear: nowDate.getFullYear(),
+      serverMonth,
+      serverYear,
       serverOffset,
       isSynced,
       timeString12h,
@@ -87,15 +93,17 @@ export function useServerTime() {
   if (!context) {
     // Return a safe fallback if used outside Provider
     const now = new Date();
+    const fallbackMonth = parseInt(now.toLocaleDateString('en-US', { timeZone: 'Asia/Kolkata', month: 'numeric' }), 10);
+    const fallbackYear = parseInt(now.toLocaleDateString('en-US', { timeZone: 'Asia/Kolkata', year: 'numeric' }), 10);
     return {
       serverDate: now,
       getServerDate: () => new Date(),
-      serverMonth: now.getMonth() + 1,
-      serverYear: now.getFullYear(),
+      serverMonth: fallbackMonth,
+      serverYear: fallbackYear,
       serverOffset: 0,
       isSynced: false,
-      timeString12h: now.toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit', second: '2-digit', hour12: true }),
-      dateStringFormatted: now.toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric', year: 'numeric' }),
+      timeString12h: now.toLocaleTimeString('en-US', { timeZone: 'Asia/Kolkata', hour: '2-digit', minute: '2-digit', second: '2-digit', hour12: true }),
+      dateStringFormatted: now.toLocaleDateString('en-US', { timeZone: 'Asia/Kolkata', weekday: 'short', month: 'short', day: 'numeric', year: 'numeric' }),
       syncServerTime: () => {}
     };
   }

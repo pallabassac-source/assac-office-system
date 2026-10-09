@@ -1,11 +1,12 @@
 # Production Dockerfile for Backend API Service
 FROM node:20-bookworm-slim
 
-# Install system dependencies required for native Node module builds (sqlite3)
+# Install system dependencies required for native Node module builds (sqlite3) and timezone data
 RUN apt-get update && apt-get install -y --no-install-recommends \
     python3 \
     make \
     g++ \
+    tzdata \
     && rm -rf /var/lib/apt/lists/*
 
 WORKDIR /app
@@ -23,6 +24,7 @@ COPY . .
 # Default environment configuration
 ENV NODE_ENV=production \
     PORT=5000 \
+    TZ=Asia/Kolkata \
     DB_DIR=/app/data \
     UPLOADS_DIR=/app/uploads
 
