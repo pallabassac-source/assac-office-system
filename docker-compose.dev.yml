@@ -1,0 +1,47 @@
+services:
+  backend-dev:
+    build:
+      context: ./backend
+      dockerfile: Dockerfile
+    container_name: assac_backend_dev
+    restart: unless-stopped
+    command: ["node", "--watch", "server.js"]
+    environment:
+      PORT: 5000
+      NODE_ENV: development
+      DB_DIR: /app/data
+      UPLOADS_DIR: /app/uploads
+      JWT_SECRET: dev_secret_key_2026
+    ports:
+      - "5000:5000"
+    volumes:
+      - ./backend:/app
+      - /app/node_modules
+      - assac_dev_data:/app/data
+      - assac_dev_uploads:/app/uploads
+    networks:
+      - assac_dev_network
+
+  frontend-dev:
+    image: node:20-alpine
+    container_name: assac_frontend_dev
+    restart: unless-stopped
+    working_dir: /app
+    command: ["npm", "run", "dev", "--", "--host", "0.0.0.0", "--port", "5173"]
+    ports:
+      - "5173:5173"
+    volumes:
+      - ./frontend:/app
+      - /app/node_modules
+    depends_on:
+      - backend-dev
+    networks:
+      - assac_dev_network
+
+volumes:
+  assac_dev_data:
+  assac_dev_uploads:
+
+networks:
+  assac_dev_network:
+    driver: bridge

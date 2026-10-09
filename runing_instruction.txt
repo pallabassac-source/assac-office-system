@@ -1,0 +1,49 @@
+================================================================================
+ASSAC Intranet Attendance & Governance System - Quick Start Instructions
+================================================================================
+
+A. RUNNING WITH DOCKER (RECOMMENDED FOR EASY MANAGEMENT)
+--------------------------------------------------------------------------------
+1. Ensure Docker Desktop is running on Windows.
+2. Open PowerShell or Command Prompt in d:\attendance-system:
+
+   Option 1 - Double-click helper script:
+     - docker-start.bat       (To build & launch system in background)
+     - docker-stop.bat        (To gracefully stop containers)
+     - docker-restart.bat     (To rebuild and restart)
+     - docker-backup.bat      (To create a backup of database and uploads)
+     - docker-logs.bat        (To view live streaming container logs)
+
+   Option 2 - Using PowerShell CLI:
+     - .\docker-manage.ps1 start
+     - .\docker-manage.ps1 stop
+     - .\docker-manage.ps1 backup
+     - .\docker-manage.ps1 dev     (for live hot-reload development)
+
+   Option 3 - Standard Docker Compose commands:
+     - docker compose up -d --build
+     - docker compose down
+
+3. Access the system:
+   - Web Application : http://localhost   (or http://<your-lan-ip>)
+   - Backend API     : http://localhost:5000/api
+   - Health Check    : http://localhost:5000/api/health
+
+4. Default Credentials:
+   - Super Admin     : superadmin / super123
+   - Office Admin    : admin / admin123
+   - IMS Admin       : ims / ims123
+   - Employee        : employee / emp123
+   - Intern          : intern / intern123
+
+
+B. RUNNING LOCALLY WITHOUT DOCKER (STANDALONE NODE DEV)
+--------------------------------------------------------------------------------
+1. Start Backend API:
+   cd d:\attendance-system\backend
+   node server.js
+
+2. Start Frontend UI:
+   cd d:\attendance-system\frontend
+   npm run dev -- --host
+================================================================================

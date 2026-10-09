@@ -1,0 +1,68 @@
+# ==========================================================
+# Git Ignore Configuration - ASSAC Attendance & Governance System
+# ==========================================================
+
+# Dependencies
+node_modules/
+**/node_modules/
+
+# Production Build Artifacts
+dist/
+**/dist/
+dist-ssr/
+build/
+
+# Environment Variables & Secrets
+.env
+.env.local
+.env.*.local
+!.env.example
+
+# Logs & Debugging
+logs/
+*.log
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+pnpm-debug.log*
+
+# SQLite Database Runtime & Lock Files
+*.db-shm
+*.db-wal
+*.sqlite-shm
+*.sqlite-wal
+
+# Runtime Database Directories (Preserve directory structure via .gitkeep)
+data/*
+!data/.gitkeep
+backend/data/*
+!backend/data/.gitkeep
+
+# User Uploaded Documents & Excels (Preserve directory structure via .gitkeep)
+uploads/*
+!uploads/.gitkeep
+backend/uploads/*
+!backend/uploads/.gitkeep
+
+# Automated Container Backups
+backups/*
+!backups/.gitkeep
+
+# Temporary & Scratch Files
+scratch/
+test_parsed.json
+
+# IDE & Editor Configurations
+.vscode/
+.idea/
+*.suo
+*.ntvs*
+*.njsproj
+*.sln
+*.sw?
+
+# OS Generated Files
+.DS_Store
+Thumbs.db
+ehthumbs.db
+[Dd]esktop.ini
