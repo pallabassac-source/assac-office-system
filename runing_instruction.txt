@@ -46,4 +46,24 @@ B. RUNNING LOCALLY WITHOUT DOCKER (STANDALONE NODE DEV)
 2. Start Frontend UI:
    cd d:\attendance-system\frontend
    npm run dev -- --host
+
+C. HIGH-CAPACITY STORAGE (/data 1.0TB ON IMS SERVER) & LOCAL NETWORK UPLOADS
+--------------------------------------------------------------------------------
+1. Storage Volume on IMS Host:
+   - Partition: /dev/mapper/vgdata-data mounted on /data (1.0 TB Capacity, 1017 GB Available)
+   - When deploying with Docker Compose on IMS host, set in .env:
+       STORAGE_VOLUME_PATH=/data/uploads
+       DATA_VOLUME_PATH=/data/attendance-system/data
+   - When running standalone node on Linux host:
+       Set UPLOADS_DIR=/data/uploads in backend/.env
+
+2. File Uploading Features Implemented:
+   - Local Network (LAN) Uploads: Supports large files (up to 500 MB) across LAN.
+   - Intern Scholar Deliverables: Upload project reports, code zip, drone/GIS datasets.
+   - IMS Admin Vault: Browse, direct 1-click download, view in browser, and delete/purge files.
+   - Storage Gauge: Real-time visual gauge displaying free/used disk space on /data.
+
+3. Employee Login & Office Admin Provisioning:
+   - Office Admin creates employees with auto or custom login credentials.
+   - Employees can log in with username/password and access attendance, forms, and uploads.
 ================================================================================

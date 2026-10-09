@@ -1,8 +1,16 @@
 import React, { useState, useEffect } from 'react';
 import { useAuth } from '../context/AuthContext';
-import { getAttendanceRecords, getEmployeeDetail } from '../services/api';
+import { 
+  getAttendanceRecords, 
+  getEmployeeDetail,
+  getInternDocuments,
+  getInternDocumentDownloadUrl,
+  getInternDocumentViewUrl
+} from '../services/api';
 import FormsDownloadsView from './FormsDownloadsView';
 import HolidayCalendarWidget from '../components/HolidayCalendarWidget';
+import StorageDiskGauge from '../components/StorageDiskGauge';
+import FileUploadModal from '../components/FileUploadModal';
 import { 
   User, 
   Calendar, 
@@ -21,19 +29,35 @@ import {
   Eye,
   RefreshCw,
   Sun,
-  ShieldCheck
+  ShieldCheck,
+  UploadCloud,
+  ExternalLink,
+  HardDrive
 } from 'lucide-react';
 
 export default function EmployeePortalView({ selectedMonth, selectedYear }) {
   const { user } = useAuth();
   const currentMonth = new Date().getMonth() + 1;
   const currentYear = new Date().getFullYear();
-  const [activeTab, setActiveTab] = useState('attendance'); // 'attendance' | 'forms' | 'holidays'
+  const [activeTab, setActiveTab] = useState('attendance'); // 'attendance' | 'forms' | 'storage' | 'holidays'
   const [month, setMonth] = useState(selectedMonth || currentMonth);
   const [year, setYear] = useState(selectedYear || currentYear);
   const [myRecord, setMyRecord] = useState(null);
   const [myDetail, setMyDetail] = useState(null);
   const [isLoading, setIsLoading] = useState(true);
+  const [filesList, setFilesList] = useState([]);
+  const [showUploadModal, setShowUploadModal] = useState(false);
+
+  const loadFiles = async () => {
+    try {
+      const res = await getInternDocuments();
+      if (res && res.data) {
+        setFilesList(res.data);
+      }
+    } catch (e) {
+      console.warn('Could not load storage documents:', e);
+    }
+  };
 
   useEffect(() => {
     if (selectedMonth) setMonth(selectedMonth);
@@ -167,6 +191,21 @@ export default function EmployeePortalView({ selectedMonth, selectedYear }) {
           >
             <FileText className="h-4 w-4" />
             <span>Official Forms & Formats Desk</span>
+          </button>
+
+          <button
+            onClick={() => {
+              setActiveTab('storage');
+              loadFiles();
+            }}
+            className={`flex items-center gap-2 px-4 py-2 rounded-xl font-extrabold transition-all cursor-pointer ${
+              activeTab === 'storage'
+                ? 'bg-indigo-600 text-white shadow-xs'
+                : 'bg-slate-50 hover:bg-slate-100 text-slate-700 border border-slate-200'
+            }`}
+          >
+            <HardDrive className="h-4 w-4" />
+            <span>Storage Vault & LAN Uploads</span>
           </button>
 
           <button
@@ -306,12 +345,93 @@ export default function EmployeePortalView({ selectedMonth, selectedYear }) {
         </div>
       )}
 
-      {/* TAB 3: HOLIDAY CALENDAR */}
+      {/* TAB 3: STORAGE VAULT & LAN FILE HUB */}
+      {activeTab === 'storage' && (
+        <div className="space-y-6">
+          <StorageDiskGauge />
+
+          <div className="bg-white rounded-2xl border border-slate-200 overflow-hidden shadow-2xs">
+            <div className="bg-slate-50 px-5 py-3.5 border-b border-slate-200 flex items-center justify-between">
+              <div className="flex items-center gap-2 text-slate-900 font-extrabold text-xs">
+                <HardDrive className="h-4 w-4 text-indigo-600" />
+                <span>Intranet Storage Vault & Available Deliverables</span>
+              </div>
+              <button
+                onClick={() => setShowUploadModal(true)}
+                className="px-3 py-1.5 rounded-xl bg-indigo-600 hover:bg-indigo-700 text-white font-extrabold text-xs transition-colors cursor-pointer flex items-center gap-1.5 shadow-xs"
+              >
+                <UploadCloud className="h-3.5 w-3.5" />
+                <span>Upload to Vault</span>
+              </button>
+            </div>
+
+            <div className="p-4 space-y-2.5">
+              {filesList.length > 0 ? (
+                filesList.map(doc => (
+                  <div key={doc.id} className="p-3 bg-slate-50 rounded-xl border border-slate-200 flex items-center justify-between shadow-2xs hover:border-indigo-300 transition-colors text-xs">
+                    <div className="flex items-center gap-2.5 min-w-0">
+                      <FileText className="h-4 w-4 text-sky-600 shrink-0" />
+                      <div className="truncate">
+                        <span className="font-extrabold text-slate-900 block truncate">{doc.title}</span>
+                        <div className="flex items-center gap-2 text-[10px] text-slate-500 font-mono">
+                          <span>{doc.category}</span>
+                          {doc.file_size ? (
+                            <>
+                              <span>•</span>
+                              <span className="font-bold text-slate-700">{(doc.file_size / (1024 * 1024)).toFixed(2)} MB</span>
+                            </>
+                          ) : null}
+                          <span>•</span>
+                          <span>By: {doc.uploaded_by || 'Staff'}</span>
+                        </div>
+                      </div>
+                    </div>
+
+                    <div className="flex items-center gap-1.5 shrink-0 ml-2">
+                      <a
+                        href={getInternDocumentDownloadUrl(doc.id)}
+                        target="_blank"
+                        rel="noreferrer"
+                        download
+                        className="px-2.5 py-1 rounded-lg bg-white border border-slate-200 hover:bg-indigo-50 hover:text-indigo-600 text-slate-700 transition-colors cursor-pointer flex items-center gap-1 font-bold text-[11px]"
+                      >
+                        <Download className="h-3.5 w-3.5" />
+                        <span>Download</span>
+                      </a>
+                      <button
+                        onClick={() => window.open(getInternDocumentViewUrl(doc.id), '_blank')}
+                        className="p-1 rounded-lg bg-white border border-slate-200 hover:bg-slate-100 text-slate-700 transition-colors cursor-pointer"
+                        title="View File"
+                      >
+                        <ExternalLink className="h-3.5 w-3.5" />
+                      </button>
+                    </div>
+                  </div>
+                ))
+              ) : (
+                <div className="py-8 text-center text-slate-400 font-medium text-xs">
+                  No files currently archived. Click "Upload to Vault" to transfer files to high-capacity storage.
+                </div>
+              )}
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* TAB 4: HOLIDAY CALENDAR */}
       {activeTab === 'holidays' && (
         <div className="space-y-6">
           <HolidayCalendarWidget />
         </div>
       )}
+
+      {/* File Upload Modal */}
+      <FileUploadModal
+        isOpen={showUploadModal}
+        onClose={() => setShowUploadModal(false)}
+        onSuccess={() => loadFiles()}
+        user={user}
+      />
 
     </div>
   );

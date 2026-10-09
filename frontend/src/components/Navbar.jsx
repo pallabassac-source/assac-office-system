@@ -34,6 +34,7 @@ const OFFICE_ADMIN_TABS = [
   { id: 'employees', label: 'Staff Directory', icon: Users },
   { id: 'interns', label: 'Intern Onboarding', icon: GraduationCap },
   { id: 'certificates', label: 'E-Certificates', icon: Award },
+  { id: 'forms', label: 'Forms Desk', icon: FileText },
   { id: 'upload', label: 'Excel Ingestion', icon: UploadCloud },
   { id: 'analytics', label: 'Analytics', icon: BarChart3 },
   { id: 'exports', label: 'Report Export Center', icon: Download },

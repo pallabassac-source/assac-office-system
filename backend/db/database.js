@@ -275,6 +275,26 @@ async function initDb() {
       details TEXT,
       timestamp TIMESTAMP DEFAULT CURRENT_TIMESTAMP
     );
+
+    CREATE TABLE IF NOT EXISTS forms (
+      id INTEGER PRIMARY KEY ${usePostgres ? 'GENERATED ALWAYS AS IDENTITY' : 'AUTOINCREMENT'},
+      form_code TEXT UNIQUE NOT NULL,
+      title TEXT NOT NULL,
+      category TEXT NOT NULL,
+      description TEXT,
+      format TEXT DEFAULT 'PDF',
+      file_path TEXT,
+      file_name TEXT,
+      file_size INTEGER DEFAULT 0,
+      mime_type TEXT,
+      stored_filename TEXT,
+      is_popular INTEGER DEFAULT 0,
+      download_count INTEGER DEFAULT 0,
+      pdf_url TEXT,
+      uploaded_by TEXT,
+      updated_date TEXT,
+      created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+    );
   `);
 
   // Safe schema migrations for existing DB
@@ -300,6 +320,30 @@ async function initDb() {
   await safeAddColumn('users', 'employee_id INTEGER');
 
   await safeAddColumn('documents', 'intern_name TEXT');
+  await safeAddColumn('documents', 'file_name TEXT');
+  await safeAddColumn('documents', 'file_size INTEGER DEFAULT 0');
+  await safeAddColumn('documents', 'mime_type TEXT');
+  await safeAddColumn('documents', 'stored_filename TEXT');
+  await safeAddColumn('documents', 'description TEXT');
+  await safeAddColumn('documents', 'download_count INTEGER DEFAULT 0');
+  await safeAddColumn('documents', 'employee_id INTEGER');
+  await safeAddColumn('documents', 'employee_name TEXT');
+
+  await safeAddColumn('forms', 'form_code TEXT');
+  await safeAddColumn('forms', 'title TEXT');
+  await safeAddColumn('forms', 'category TEXT');
+  await safeAddColumn('forms', 'description TEXT');
+  await safeAddColumn('forms', 'format TEXT DEFAULT \'PDF\'');
+  await safeAddColumn('forms', 'file_path TEXT');
+  await safeAddColumn('forms', 'file_name TEXT');
+  await safeAddColumn('forms', 'file_size INTEGER DEFAULT 0');
+  await safeAddColumn('forms', 'mime_type TEXT');
+  await safeAddColumn('forms', 'stored_filename TEXT');
+  await safeAddColumn('forms', 'is_popular INTEGER DEFAULT 0');
+  await safeAddColumn('forms', 'download_count INTEGER DEFAULT 0');
+  await safeAddColumn('forms', 'pdf_url TEXT');
+  await safeAddColumn('forms', 'uploaded_by TEXT');
+  await safeAddColumn('forms', 'updated_date TEXT');
 
   // Seed default official departments if empty
   const deptCountRes = await db.prepare('SELECT COUNT(*) as count FROM departments').get();
@@ -387,6 +431,37 @@ async function initDb() {
 
     for (const doc of initialDocs) {
       await insertDoc.run(...doc);
+    }
+  }
+
+  // Seed default official forms if empty
+  const formsCount = await db.prepare('SELECT COUNT(*) as count FROM forms').get();
+  if (!formsCount || Number(formsCount.count) === 0) {
+    const insertForm = db.prepare(`
+      INSERT INTO forms (
+        form_code, title, category, format, file_size, updated_date, description, is_popular, pdf_url, uploaded_by
+      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+    `);
+
+    const initialForms = [
+      ['ASSAC-HR-F-01', 'Standard Leave Application Form (CL / EL / ML)', 'Attendance & Leave', 'PDF', 148480, '15 Jan 2026', 'Official application format for applying Casual Leave (CL), Earned Leave (EL), and Medical Leave (ML). Requires HOD signature.', 1, null, 'Office Admin'],
+      ['ASSAC-HR-F-02', 'Biometric Missed Punch & Regularization Form', 'Attendance & Leave', 'PDF', 112640, '01 Feb 2026', 'Form for regularizing missed biometric clock-in or clock-out times due to official duty, machine error, or field work.', 1, null, 'Office Admin'],
+      ['ASSAC-HR-F-03', 'Station Leave Clearance Certificate', 'Attendance & Leave', 'PDF', 128000, '10 Jan 2026', 'Prior permission format required before leaving district headquarters during weekends, holidays, or official leave.', 0, null, 'Office Admin'],
+      ['ASSAC-HR-F-04', 'Field Duty & Outstation Tour Order Approval', 'Attendance & Leave', 'DOCX', 87040, '20 Feb 2026', 'Requisition format for official outstation field surveys, satellite ground truth validation, and departmental tours.', 0, null, 'Office Admin'],
+      ['ASSAC-GAD-2026', 'Official Govt of Assam Holiday Roster 2026 (GAD Notification)', 'Attendance & Leave', 'PDF', 353280, '01 Jan 2026', 'Official Notification (e-file No. 221561/440) detailing Gazetted, Half Holiday, Restricted, and Special Casual Leave schedule.', 1, '/api/holidays/pdf', 'Office Admin'],
+      ['ASSAC-FIN-V-01', 'Travelling Allowance (TA/DA) Claim Voucher Format', 'Finance & Claims', 'XLSX', 225280, '05 Mar 2026', 'Itemized Excel spreadsheet format for claiming daily allowance, hotel stay, railway/flight tickets, and tour expenses.', 1, null, 'Office Admin'],
+      ['ASSAC-FIN-V-02', 'Local Conveyance Reimbursement Claim Slip', 'Finance & Claims', 'PDF', 97280, '12 Feb 2026', 'Voucher for claiming official local taxi, auto-rickshaw, or mileage expenses within city limits.', 0, null, 'Office Admin'],
+      ['ASSAC-FIN-V-03', 'Medical Expense Reimbursement Application', 'Finance & Claims', 'PDF', 184320, '18 Jan 2026', 'Official form for submitting medical treatment bills, hospital summary, and pharmacy receipts for reimbursement.', 0, null, 'Office Admin'],
+      ['ASSAC-STR-R-01', 'Office Stationery & IT Store Requisition Slip', 'Stores & Requisitions', 'PDF', 117760, '14 Feb 2026', 'Indent format for requesting office stationery, printer cartridges, desk accessories, and computer consumables.', 1, null, 'Office Admin'],
+      ['ASSAC-STR-R-02', 'Temporary Equipment Loan & Issue Slip (GPS / Laptops)', 'Stores & Requisitions', 'PDF', 133120, '28 Jan 2026', 'Issue voucher for borrowing lab instruments, survey GPS units, drone kits, or laptops for field projects.', 0, null, 'Office Admin'],
+      ['ASSAC-SEC-G-01', 'Visitor Gate Pass & Security Clearance Format', 'Stores & Requisitions', 'PDF', 92160, '02 Mar 2026', 'Pre-authorization pass format for official visitors, research scholars, and contractors entering office premises.', 0, null, 'Office Admin'],
+      ['ASSAC-INT-F-01', 'Intern Onboarding & Verification Checklist Format', 'Academic & Interns', 'PDF', 163840, '10 Feb 2026', 'Mandatory onboarding format for research interns, university students, and project fellows joining ASSAC.', 1, null, 'Office Admin'],
+      ['ASSAC-INT-F-02', 'Intern Internship Final Project Cover Page Format', 'Academic & Interns', 'DOCX', 76800, '01 Mar 2026', 'Standard institutional title page format for bound internship project reports and thesis submissions.', 0, null, 'Office Admin'],
+      ['ASSAC-INT-F-03', 'No-Dues Clearance Form for Certificate Issuance', 'Academic & Interns', 'PDF', 107520, '22 Feb 2026', 'Clearance certificate required from Library, IT, and Mentor before issuing internship completion certificate.', 1, null, 'Office Admin']
+    ];
+
+    for (const f of initialForms) {
+      await insertForm.run(...f);
     }
   }
 }

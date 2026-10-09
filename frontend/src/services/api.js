@@ -158,13 +158,51 @@ export const getInternDocuments = async (params = {}) => {
   return res.data;
 };
 
-export const createInternDocument = async (docData) => {
+export const createInternDocument = async (docData, onUploadProgress = null) => {
+  if (docData instanceof FormData) {
+    const res = await api.post('/interns/documents', docData, {
+      headers: { 'Content-Type': 'multipart/form-data' },
+      onUploadProgress: (progressEvent) => {
+        if (onUploadProgress && progressEvent.total) {
+          const percent = Math.round((progressEvent.loaded * 100) / progressEvent.total);
+          onUploadProgress(percent, progressEvent.loaded, progressEvent.total);
+        }
+      }
+    });
+    return res.data;
+  }
   const res = await api.post('/interns/documents', docData);
   return res.data;
 };
 
+export const getInternDocumentDownloadUrl = (id) => {
+  return `${API_BASE_URL}/interns/documents/${id}/download`;
+};
+
+export const getInternDocumentViewUrl = (id) => {
+  return `${API_BASE_URL}/interns/documents/${id}/view`;
+};
+
 export const deleteInternDocument = async (id) => {
   const res = await api.delete(`/interns/documents/${id}`);
+  return res.data;
+};
+
+export const getStorageStatus = async () => {
+  const res = await api.get('/system/storage');
+  return res.data;
+};
+
+export const uploadNetworkFile = async (formData, onUploadProgress = null) => {
+  const res = await api.post('/storage/upload', formData, {
+    headers: { 'Content-Type': 'multipart/form-data' },
+    onUploadProgress: (progressEvent) => {
+      if (onUploadProgress && progressEvent.total) {
+        const percent = Math.round((progressEvent.loaded * 100) / progressEvent.total);
+        onUploadProgress(percent, progressEvent.loaded, progressEvent.total);
+      }
+    }
+  });
   return res.data;
 };
 
@@ -252,4 +290,65 @@ export const generateAiPresentation = async ({ topic, slideCount }) => {
   return res.data;
 };
 
+// ==========================================
+// 6. OFFICIAL FORMS & FORMATS MANAGEMENT
+// ==========================================
+export const getFormsList = async (params = {}) => {
+  const res = await api.get('/forms', { params });
+  return res.data;
+};
+
+export const getFormById = async (id) => {
+  const res = await api.get(`/forms/${id}`);
+  return res.data;
+};
+
+export const createFormApi = async (formData, onUploadProgress = null) => {
+  if (formData instanceof FormData) {
+    const res = await api.post('/forms', formData, {
+      headers: { 'Content-Type': 'multipart/form-data' },
+      onUploadProgress: (progressEvent) => {
+        if (onUploadProgress && progressEvent.total) {
+          const percent = Math.round((progressEvent.loaded * 100) / progressEvent.total);
+          onUploadProgress(percent, progressEvent.loaded, progressEvent.total);
+        }
+      }
+    });
+    return res.data;
+  }
+  const res = await api.post('/forms', formData);
+  return res.data;
+};
+
+export const updateFormApi = async (id, formData, onUploadProgress = null) => {
+  if (formData instanceof FormData) {
+    const res = await api.put(`/forms/${id}`, formData, {
+      headers: { 'Content-Type': 'multipart/form-data' },
+      onUploadProgress: (progressEvent) => {
+        if (onUploadProgress && progressEvent.total) {
+          const percent = Math.round((progressEvent.loaded * 100) / progressEvent.total);
+          onUploadProgress(percent, progressEvent.loaded, progressEvent.total);
+        }
+      }
+    });
+    return res.data;
+  }
+  const res = await api.put(`/forms/${id}`, formData);
+  return res.data;
+};
+
+export const deleteFormApi = async (id) => {
+  const res = await api.delete(`/forms/${id}`);
+  return res.data;
+};
+
+export const getFormDownloadUrl = (id) => {
+  return `${API_BASE_URL}/forms/${id}/download`;
+};
+
+export const getFormViewUrl = (id) => {
+  return `${API_BASE_URL}/forms/${id}/view`;
+};
+
 export default api;
+

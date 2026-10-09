@@ -11,6 +11,7 @@ const apiRoutes = require('./routes/api');
 const excelParser = require('./services/excel_parser');
 const attendanceRepository = require('./repositories/attendance_repository');
 const timeService = require('./services/time_service');
+const storageService = require('./services/storage_service');
 
 const app = express();
 const PORT = process.env.PORT || 5000;
@@ -18,11 +19,11 @@ const HOST = '0.0.0.0'; // Bind to all LAN network interfaces
 
 // Enable CORS for all origins & JSON parsing
 app.use(cors({ origin: '*' }));
-app.use(express.json({ limit: '50mb' }));
-app.use(express.urlencoded({ extended: true, limit: '50mb' }));
+app.use(express.json({ limit: '100mb' }));
+app.use(express.urlencoded({ extended: true, limit: '100mb' }));
 
-// Serve static uploads
-const uploadsDir = process.env.UPLOADS_DIR || path.resolve(__dirname, '../uploads');
+// Serve static uploads from central storage mount
+const uploadsDir = storageService.getRootDir();
 if (!fs.existsSync(uploadsDir)) {
   fs.mkdirSync(uploadsDir, { recursive: true });
 }
@@ -118,12 +119,23 @@ async function autoSeedDefaultFile() {
   }
 }
 
-app.listen(PORT, HOST, async () => {
+const server = app.listen(PORT, HOST, async () => {
+  const disk = storageService.getDiskStats();
   console.log(`=================================================`);
   console.log(`🚀 ASSAC Intranet Backend Server listening on 0.0.0.0:${PORT}`);
   console.log(`📡 Accessible over LAN at http://192.168.10.117:${PORT}`);
+  console.log(`💾 Storage Root: ${disk.storage_path} (${disk.free_formatted} available / ${disk.total_formatted})`);
+  console.log(`📦 Max File Transfer Limit: 10 GB per file (No transfer timeout)`);
   console.log(`=================================================`);
   
   await autoSeedDefaultFile();
 });
+
+// Configure Node HTTP server to allow massive 10GB file transfers over LAN
+server.timeout = 0; // Disable request inactivity timeout
+server.keepAliveTimeout = 600000; // 10 minutes keepalive
+server.headersTimeout = 610000;
+if (server.requestTimeout !== undefined) {
+  server.requestTimeout = 0;
+}
 

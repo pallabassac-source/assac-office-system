@@ -10,6 +10,7 @@ import ExcelUploadView from './ExcelUploadView';
 import AnalyticsView from './AnalyticsView';
 import ExportsView from './ExportsView';
 import AuditLogsView from './AuditLogsView';
+import FormsDownloadsView from './FormsDownloadsView';
 import { 
   Building2, 
   Users, 
@@ -27,7 +28,8 @@ import {
   Award,
   GraduationCap,
   Briefcase,
-  ChevronRight
+  ChevronRight,
+  FileText
 } from 'lucide-react';
 
 const TAB_TITLES = {
@@ -37,6 +39,7 @@ const TAB_TITLES = {
   interns: { title: 'Intern Scholar Onboarding Desk', desc: 'Register research interns, supervisors, academic degree, scope & duration' },
   certificates: { title: 'E-Certificate Issuance & Softcopy Mail Desk', desc: 'Official completion certificates with automatic PDF generation & mail delivery' },
   upload: { title: 'Monthly Excel Ingestion Hub', desc: 'Ingest monthly biometric Excel workbooks with automatic period extraction' },
+  forms: { title: 'Official Forms & Formats Desk', desc: 'Create, upload, update, and manage official office formats & templates' },
   analytics: { title: 'Analytics & Leaderboards', desc: 'Overtime rankings, punctuality indices & department attendance rates' },
   exports: { title: 'Report & Register Export Center', desc: 'Download official Excel registers & printable executive PDF summaries' },
   audit: { title: 'System Security Audit Trail', desc: 'Traceability logs for HR modifications, credential updates & ingestion events' }
@@ -136,6 +139,18 @@ export default function OfficeAdminDashboardView({ month, year, selectedMonth, s
           </button>
 
           <button
+            onClick={() => setActiveTab('forms')}
+            className={`flex items-center gap-1.5 px-3 py-1.5 rounded-xl font-extrabold text-xs transition-colors cursor-pointer ${
+              activeTab === 'forms'
+                ? 'bg-emerald-600 text-white shadow-xs'
+                : 'bg-emerald-50 hover:bg-emerald-100 text-emerald-700 border border-emerald-200'
+            }`}
+          >
+            <FileText className="h-3.5 w-3.5" />
+            <span>Official Forms</span>
+          </button>
+
+          <button
             onClick={() => setActiveTab('exports')}
             className={`flex items-center gap-1.5 px-3 py-1.5 rounded-xl font-extrabold text-xs transition-colors cursor-pointer ${
               activeTab === 'exports'
@@ -200,6 +215,10 @@ export default function OfficeAdminDashboardView({ month, year, selectedMonth, s
             month={month || selectedMonth || (new Date().getMonth() + 1)}
             year={year || selectedYear || new Date().getFullYear()}
           />
+        )}
+
+        {activeTab === 'forms' && (
+          <FormsDownloadsView />
         )}
 
         {activeTab === 'audit' && (

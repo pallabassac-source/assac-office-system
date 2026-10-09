@@ -1,6 +1,8 @@
 import React, { useState, useEffect } from 'react';
 import { useAuth } from '../context/AuthContext';
 import RestrictedAccessView from '../components/RestrictedAccessView';
+import StorageDiskGauge from '../components/StorageDiskGauge';
+import FileUploadModal from '../components/FileUploadModal';
 import { 
   getInterns, 
   createIntern, 
@@ -10,6 +12,8 @@ import {
   getInternDocuments,
   createInternDocument,
   deleteInternDocument,
+  getInternDocumentDownloadUrl,
+  getInternDocumentViewUrl,
   getDepartments,
   createDepartment
 } from '../services/api';
@@ -46,7 +50,9 @@ import {
   Trash2,
   RefreshCw,
   Send,
-  AlertCircle
+  AlertCircle,
+  ExternalLink,
+  HardDrive
 } from 'lucide-react';
 
 export default function InternsPortalView() {
@@ -770,74 +776,134 @@ export default function InternsPortalView() {
         </div>
       )}
 
-      {/* SUB-TAB 2: IMS DOCUMENT DESK TABLE */}
+      {/* SUB-TAB 2: IMS DOCUMENT DESK TABLE & STORAGE VAULT */}
       {activeSubTab === 'documents' && (
-        <div className="bg-white rounded-2xl border border-slate-200 overflow-hidden shadow-2xs space-y-4">
-          <div className="overflow-x-auto">
-            <table className="w-full text-xs text-left border-collapse">
-              <thead>
-                <tr className="bg-slate-50 text-slate-600 border-b border-slate-200 font-extrabold uppercase text-[10px]">
-                  <th className="py-3 px-4">Document Title & ID</th>
-                  <th className="py-3 px-4">Document Category</th>
-                  <th className="py-3 px-4">Associated Student Intern</th>
-                  <th className="py-3 px-4">Archived By & Date</th>
-                  <th className="py-3 px-4 text-right">Actions</th>
-                </tr>
-              </thead>
-              <tbody className="divide-y divide-slate-200 text-slate-800">
-                {paginatedDocuments.length > 0 ? (
-                  paginatedDocuments.map((doc) => (
-                    <tr key={doc.id} className="hover:bg-slate-50 transition-colors">
-                      <td className="py-3.5 px-4">
-                        <div className="flex items-center gap-3">
-                          <FileText className="h-5 w-5 text-sky-600 shrink-0" />
-                          <div>
-                            <span className="font-extrabold text-slate-900 text-sm block">{doc.title}</span>
-                            <span className="text-[11px] text-sky-600 font-mono font-bold">DOC-#{doc.id}</span>
-                          </div>
-                        </div>
-                      </td>
+        <div className="space-y-4">
+          {/* Live High-Capacity /data Storage Gauge */}
+          <StorageDiskGauge />
 
-                      <td className="py-3.5 px-4">
-                        <span className="px-2.5 py-0.5 rounded-full text-[10px] font-extrabold bg-sky-50 text-sky-800 border border-sky-200">
-                          {doc.category}
-                        </span>
-                      </td>
+          <div className="bg-white rounded-2xl border border-slate-200 overflow-hidden shadow-2xs">
+            <div className="overflow-x-auto">
+              <table className="w-full text-xs text-left border-collapse">
+                <thead>
+                  <tr className="bg-slate-50 text-slate-600 border-b border-slate-200 font-extrabold uppercase text-[10px]">
+                    <th className="py-3 px-4">Deliverable Title & File</th>
+                    <th className="py-3 px-4">Category</th>
+                    <th className="py-3 px-4">Associated Student Intern</th>
+                    <th className="py-3 px-4">File Size & Storage</th>
+                    <th className="py-3 px-4">Archived By & Date</th>
+                    <th className="py-3 px-4 text-right">Vault Actions</th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-slate-200 text-slate-800">
+                  {paginatedDocuments.length > 0 ? (
+                    paginatedDocuments.map((doc) => {
+                      const isRealStorage = doc.file_path && !doc.file_path.includes('sample_');
+                      return (
+                        <tr key={doc.id} className="hover:bg-slate-50 transition-colors">
+                          <td className="py-3.5 px-4">
+                            <div className="flex items-center gap-3">
+                              <div className="h-8 w-8 rounded-xl bg-sky-50 border border-sky-200 flex items-center justify-center text-sky-700 shrink-0">
+                                <FileText className="h-4 w-4" />
+                              </div>
+                              <div className="max-w-xs sm:max-w-md">
+                                <span className="font-extrabold text-slate-900 text-sm block truncate">{doc.title}</span>
+                                <div className="flex items-center gap-2 text-[11px] text-slate-500 font-mono">
+                                  <span className="text-sky-700 font-bold">DOC-#{doc.id}</span>
+                                  {doc.file_name && doc.file_name !== doc.title && (
+                                    <>
+                                      <span>•</span>
+                                      <span className="truncate max-w-[150px]">{doc.file_name}</span>
+                                    </>
+                                  )}
+                                  {doc.download_count > 0 && (
+                                    <>
+                                      <span>•</span>
+                                      <span className="text-emerald-700 font-bold">{doc.download_count} dl</span>
+                                    </>
+                                  )}
+                                </div>
+                              </div>
+                            </div>
+                          </td>
 
-                      <td className="py-3.5 px-4 font-bold text-slate-900">{doc.intern_name || 'General Archive'}</td>
-                      <td className="py-3.5 px-4 text-slate-600 font-medium">{doc.uploaded_by} ({doc.created_at ? doc.created_at.split(' ')[0] : '2026-05-01'})</td>
-                      <td className="py-3.5 px-4 text-right">
-                        <div className="flex items-center justify-end gap-1.5">
-                          <button 
-                            onClick={() => alert(`Downloading "${doc.title}" from secure IMS archive...`)}
-                            className="px-3 py-1 rounded-lg bg-sky-50 hover:bg-sky-100 text-sky-700 border border-sky-200 font-extrabold text-[11px] transition-colors cursor-pointer flex items-center gap-1.5"
-                          >
-                            <Download className="h-3.5 w-3.5 text-sky-600" />
-                            <span>Download</span>
-                          </button>
+                          <td className="py-3.5 px-4">
+                            <span className="px-2.5 py-0.5 rounded-full text-[10px] font-extrabold bg-sky-50 text-sky-800 border border-sky-200 inline-block">
+                              {doc.category}
+                            </span>
+                          </td>
 
-                          {canOnboard && (
-                            <button
-                              onClick={() => handleDeleteDoc(doc.id, doc.title)}
-                              className="p-1 rounded-lg bg-rose-50 hover:bg-rose-100 text-rose-600 border border-rose-200 transition-colors cursor-pointer"
-                              title="Delete Archived Document"
-                            >
-                              <Trash2 className="h-3.5 w-3.5" />
-                            </button>
-                          )}
-                        </div>
+                          <td className="py-3.5 px-4">
+                            <span className="font-bold text-slate-900 block">{doc.intern_name || 'General Archive'}</span>
+                            <span className="text-[10px] text-slate-500">Research Scholar</span>
+                          </td>
+
+                          <td className="py-3.5 px-4 font-mono">
+                            {doc.file_size ? (
+                              <span className="px-2 py-0.5 rounded-md bg-slate-100 text-slate-800 font-bold border border-slate-200 text-[11px]">
+                                {(doc.file_size / (1024 * 1024)).toFixed(2)} MB
+                              </span>
+                            ) : (
+                              <span className="text-slate-400 text-[11px]">Direct Vault</span>
+                            )}
+                          </td>
+
+                          <td className="py-3.5 px-4">
+                            <span className="text-slate-800 font-bold block">{doc.uploaded_by || 'IMS Officer'}</span>
+                            <span className="text-[11px] text-slate-500 font-mono">
+                              {doc.created_at ? doc.created_at.split('T')[0].split(' ')[0] : '2026-05-01'}
+                            </span>
+                          </td>
+
+                          <td className="py-3.5 px-4 text-right">
+                            <div className="flex items-center justify-end gap-1.5">
+                              {/* Direct Download File */}
+                              <a 
+                                href={getInternDocumentDownloadUrl(doc.id)}
+                                target="_blank"
+                                rel="noreferrer"
+                                download
+                                className="px-2.5 py-1 rounded-lg bg-sky-50 hover:bg-sky-100 text-sky-700 border border-sky-200 font-extrabold text-[11px] transition-colors cursor-pointer flex items-center gap-1"
+                                title="Download from storage volume"
+                              >
+                                <Download className="h-3.5 w-3.5" />
+                                <span>Download</span>
+                              </a>
+
+                              {/* Browser Inline View */}
+                              <button
+                                onClick={() => window.open(getInternDocumentViewUrl(doc.id), '_blank')}
+                                className="px-2.5 py-1 rounded-lg bg-slate-100 hover:bg-slate-200 text-slate-700 border border-slate-200 font-extrabold text-[11px] transition-colors cursor-pointer flex items-center gap-1"
+                                title="Preview document in browser"
+                              >
+                                <ExternalLink className="h-3.5 w-3.5" />
+                                <span>View</span>
+                              </button>
+
+                              {canOnboard && (
+                                <button
+                                  onClick={() => handleDeleteDoc(doc.id, doc.title)}
+                                  className="p-1.5 rounded-lg bg-rose-50 hover:bg-rose-100 text-rose-600 border border-rose-200 transition-colors cursor-pointer"
+                                  title="Delete & Purge from Disk"
+                                >
+                                  <Trash2 className="h-3.5 w-3.5" />
+                                </button>
+                              )}
+                            </div>
+                          </td>
+                        </tr>
+                      );
+                    })
+                  ) : (
+                    <tr>
+                      <td colSpan={6} className="py-10 text-center text-slate-500 font-medium">
+                        {isLoading ? 'Loading documents from storage vault...' : 'No archived documents match your query.'}
                       </td>
                     </tr>
-                  ))
-                ) : (
-                  <tr>
-                    <td colSpan={5} className="py-8 text-center text-slate-500 font-medium">
-                      {isLoading ? 'Loading documents...' : 'No archived documents match your query.'}
-                    </td>
-                  </tr>
-                )}
-              </tbody>
-            </table>
+                  )}
+                </tbody>
+              </table>
+            </div>
           </div>
         </div>
       )}
@@ -1254,82 +1320,16 @@ export default function InternsPortalView() {
         </div>
       )}
 
-      {/* Upload IMS Document Modal */}
-      {showDocUploadModal && (
-        <div className="fixed inset-0 z-50 bg-slate-900/60 backdrop-blur-sm flex items-center justify-center p-4">
-          <div className="bg-white max-w-md w-full p-6 rounded-2xl border border-slate-200 space-y-4 shadow-2xl relative text-xs">
-            <button 
-              onClick={() => setShowDocUploadModal(false)}
-              className="absolute top-4 right-4 text-slate-400 hover:text-slate-600 cursor-pointer"
-            >
-              <X className="h-5 w-5" />
-            </button>
-
-            <div className="flex items-center gap-3 border-b border-slate-200 pb-3">
-              <UploadCloud className="h-6 w-6 text-sky-600" />
-              <div>
-                <h3 className="text-base font-extrabold text-slate-900">Archive IMS Deliverable</h3>
-                <p className="text-xs text-slate-500 font-semibold">Store research deliverables, datasets, and reports</p>
-              </div>
-            </div>
-
-            <form onSubmit={handleDocUploadSubmit} className="space-y-3">
-              <div>
-                <label className="block text-slate-800 font-extrabold mb-1">Document Title & File Name</label>
-                <input
-                  type="text"
-                  required
-                  placeholder="e.g. Sentinel-1 SAR Wetland Final Report.pdf"
-                  value={newDoc.title}
-                  onChange={(e) => setNewDoc({...newDoc, title: e.target.value})}
-                  className="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl text-slate-900 text-xs font-medium focus:outline-none focus:border-sky-500"
-                />
-              </div>
-
-              <div>
-                <label className="block text-slate-800 font-extrabold mb-1">Document Category</label>
-                <select
-                  value={newDoc.category}
-                  onChange={(e) => setNewDoc({...newDoc, category: e.target.value})}
-                  className="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl text-slate-900 text-xs font-bold focus:outline-none"
-                >
-                  <option value="Project Deliverable">Project Deliverable</option>
-                  <option value="Technical Documentation">Technical Documentation</option>
-                  <option value="Research Data">Research Data</option>
-                  <option value="Completion Certificate">Completion Certificate</option>
-                </select>
-              </div>
-
-              <div>
-                <label className="block text-slate-800 font-extrabold mb-1">Associated Student Intern</label>
-                <input
-                  type="text"
-                  placeholder="e.g. Ananya Sharma (or leave blank for general archive)"
-                  value={newDoc.intern_name}
-                  onChange={(e) => setNewDoc({...newDoc, intern_name: e.target.value})}
-                  className="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl text-slate-900 text-xs font-medium focus:outline-none focus:border-sky-500"
-                />
-              </div>
-
-              <div className="flex justify-end gap-2 pt-2">
-                <button
-                  type="button"
-                  onClick={() => setShowDocUploadModal(false)}
-                  className="px-4 py-2 bg-slate-100 hover:bg-slate-200 text-slate-700 font-bold rounded-xl cursor-pointer"
-                >
-                  Cancel
-                </button>
-                <button
-                  type="submit"
-                  className="px-4 py-2 bg-sky-600 hover:bg-sky-700 text-white font-extrabold rounded-xl shadow-xs cursor-pointer"
-                >
-                  Archive Document
-                </button>
-              </div>
-            </form>
-          </div>
-        </div>
-      )}
+      {/* Real Multipart File Upload Modal for High-Capacity /data Storage */}
+      <FileUploadModal
+        isOpen={showDocUploadModal}
+        onClose={() => setShowDocUploadModal(false)}
+        onSuccess={() => {
+          loadData();
+        }}
+        internsList={internsList}
+        user={user}
+      />
 
       {/* Add New Department Modal */}
       {showAddDeptModal && (

@@ -1,6 +1,7 @@
 const db = require('../db/database');
 const emailService = require('../services/email_service');
 const exportService = require('../services/export_service');
+const storageService = require('../services/storage_service');
 const path = require('path');
 const fs = require('fs');
 
@@ -332,40 +333,77 @@ class InternRepository {
   }
 
   /**
-   * Upload / Create document record
+   * Get single document by ID
+   */
+  async getDocumentById(id) {
+    return await db.prepare('SELECT * FROM documents WHERE id = ?').get(id);
+  }
+
+  /**
+   * Increment download count
+   */
+  async incrementDownloadCount(id) {
+    try {
+      await db.prepare('UPDATE documents SET download_count = COALESCE(download_count, 0) + 1 WHERE id = ?').run(id);
+    } catch (e) {}
+  }
+
+  /**
+   * Upload / Create document record with full file metadata
    */
   async createDocument(data, userId = 1) {
     const insert = db.prepare(`
-      INSERT INTO documents (title, category, file_path, uploaded_by, intern_id, intern_name)
-      VALUES (?, ?, ?, ?, ?, ?)
+      INSERT INTO documents (
+        title, category, file_path, uploaded_by, intern_id, intern_name,
+        file_name, file_size, mime_type, stored_filename, description,
+        employee_id, employee_name, download_count
+      )
+      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 0)
     `);
 
     const result = await insert.run(
       data.title,
       data.category || 'Project Deliverable',
-      data.file_path || 'uploads/document.pdf',
+      data.file_path || 'uploads/deliverables/document.pdf',
       data.uploaded_by || 'IMS Officer',
       data.intern_id || null,
-      data.intern_name || 'General Repository'
+      data.intern_name || 'General Repository',
+      data.file_name || data.original_name || data.title,
+      data.file_size || 0,
+      data.mime_type || 'application/octet-stream',
+      data.stored_filename || null,
+      data.description || null,
+      data.employee_id || null,
+      data.employee_name || null
     );
+
+    const docId = result.lastID;
 
     await db.prepare(`
       INSERT INTO audit_logs (user_id, action, details)
       VALUES (?, 'UPLOAD_DOCUMENT', ?)
-    `).run(userId, `Archived document "${data.title}" in IMS Vault`);
+    `).run(userId, `Archived document "${data.title}" (${data.file_name || ''}) in IMS Vault`);
 
-    return { id: result.lastID, ...data };
+    return await this.getDocumentById(docId);
   }
 
   /**
-   * Delete document
+   * Delete document record and purge physical file from storage disk
    */
   async deleteDocument(id, userId = 1) {
+    const doc = await this.getDocumentById(id);
+    if (!doc) return false;
+
+    // Purge physical file from disk storage (/data/uploads)
+    if (doc.file_path) {
+      storageService.deletePhysicalFile(doc.file_path);
+    }
+
     await db.prepare('DELETE FROM documents WHERE id = ?').run(id);
     await db.prepare(`
       INSERT INTO audit_logs (user_id, action, details)
       VALUES (?, 'DELETE_DOCUMENT', ?)
-    `).run(userId, `Deleted document ID ${id}`);
+    `).run(userId, `Permanently purged document ID ${id} ("${doc.title}") from IMS Vault & disk`);
     return true;
   }
 }

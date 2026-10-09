@@ -4,10 +4,13 @@ import {
   getInterns, 
   getInternDocuments, 
   createInternDocument, 
+  getInternDocumentDownloadUrl,
+  getInternDocumentViewUrl,
   getInternCertificatePdfUrl, 
   resendInternCertificateEmail 
 } from '../services/api';
 import CertificatePreviewModal from '../components/CertificatePreviewModal';
+import FileUploadModal from '../components/FileUploadModal';
 import { 
   GraduationCap, 
   BookOpen, 
@@ -27,7 +30,8 @@ import {
   RefreshCw, 
   Layers, 
   FolderOpen,
-  Eye
+  Eye,
+  ExternalLink
 } from 'lucide-react';
 
 
@@ -315,17 +319,41 @@ export default function InternPortalView() {
                     <FileText className="h-4 w-4 text-sky-600 shrink-0" />
                     <div className="truncate">
                       <span className="font-extrabold text-slate-900 block truncate">{doc.title}</span>
-                      <span className="text-[10px] text-slate-500 font-mono">{doc.category} • DOC-#{doc.id}</span>
+                      <div className="flex items-center gap-2 text-[10px] text-slate-500 font-mono">
+                        <span>{doc.category}</span>
+                        {doc.file_size ? (
+                          <>
+                            <span>•</span>
+                            <span className="font-bold text-slate-700">{(doc.file_size / (1024 * 1024)).toFixed(2)} MB</span>
+                          </>
+                        ) : null}
+                        <span>•</span>
+                        <span className="text-emerald-700 font-bold">Stored in Vault</span>
+                      </div>
                     </div>
                   </div>
 
-                  <button
-                    onClick={() => alert(`Downloading "${doc.title}"...`)}
-                    className="p-1.5 rounded-lg bg-white border border-slate-200 hover:bg-slate-100 text-slate-700 transition-colors cursor-pointer shrink-0 ml-2"
-                    title="Download File"
-                  >
-                    <Download className="h-3.5 w-3.5" />
-                  </button>
+                  <div className="flex items-center gap-1.5 shrink-0 ml-2">
+                    <a
+                      href={getInternDocumentDownloadUrl(doc.id)}
+                      target="_blank"
+                      rel="noreferrer"
+                      download
+                      className="p-1.5 rounded-lg bg-white border border-slate-200 hover:bg-indigo-50 hover:text-indigo-600 hover:border-indigo-200 text-slate-700 transition-colors cursor-pointer flex items-center gap-1 text-[11px] font-bold"
+                      title="Download File"
+                    >
+                      <Download className="h-3.5 w-3.5" />
+                      <span className="hidden sm:inline">Download</span>
+                    </a>
+
+                    <button
+                      onClick={() => window.open(getInternDocumentViewUrl(doc.id), '_blank')}
+                      className="p-1.5 rounded-lg bg-white border border-slate-200 hover:bg-slate-100 text-slate-700 transition-colors cursor-pointer"
+                      title="Preview in browser"
+                    >
+                      <ExternalLink className="h-3.5 w-3.5" />
+                    </button>
+                  </div>
                 </div>
               ))
             ) : (
@@ -373,70 +401,17 @@ export default function InternPortalView() {
 
       </div>
 
-      {/* Submit Project Deliverable Modal */}
-      {showSubmitModal && (
-        <div className="fixed inset-0 z-50 bg-slate-900/60 backdrop-blur-sm flex items-center justify-center p-4">
-          <div className="bg-white max-w-md w-full p-6 rounded-2xl border border-slate-200 space-y-4 shadow-2xl relative text-xs">
-            <button 
-              onClick={() => setShowSubmitModal(false)}
-              className="absolute top-4 right-4 text-slate-400 hover:text-slate-600 cursor-pointer"
-            >
-              <X className="h-5 w-5" />
-            </button>
-
-            <div className="flex items-center gap-3 border-b border-slate-200 pb-3">
-              <UploadCloud className="h-6 w-6 text-indigo-600" />
-              <div>
-                <h3 className="text-base font-extrabold text-slate-900">Submit Project Deliverable</h3>
-                <p className="text-xs text-slate-500 font-medium">Archive your thesis, report, or datasets in IMS Vault</p>
-              </div>
-            </div>
-
-            <form onSubmit={handleSubmitDeliverable} className="space-y-3">
-              <div>
-                <label className="block text-slate-800 font-extrabold mb-1">Deliverable Title / Report Name *</label>
-                <input
-                  type="text"
-                  required
-                  placeholder="e.g. Sentinel-1 SAR Final Project Report.pdf"
-                  value={submission.title}
-                  onChange={(e) => setSubmission({...submission, title: e.target.value})}
-                  className="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl text-slate-900 text-xs font-medium focus:outline-none focus:border-indigo-500"
-                />
-              </div>
-
-              <div>
-                <label className="block text-slate-800 font-extrabold mb-1">Deliverable Category</label>
-                <select
-                  value={submission.category}
-                  onChange={(e) => setSubmission({...submission, category: e.target.value})}
-                  className="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl text-slate-900 text-xs font-bold focus:outline-none cursor-pointer"
-                >
-                  <option value="Project Deliverable">Project Deliverable / Thesis Report</option>
-                  <option value="Technical Documentation">Technical Specs & Documentation</option>
-                  <option value="Research Data">Research Dataset / Code Artifacts</option>
-                </select>
-              </div>
-
-              <div className="flex justify-end gap-2 pt-2 border-t border-slate-200">
-                <button
-                  type="button"
-                  onClick={() => setShowSubmitModal(false)}
-                  className="px-4 py-2 bg-slate-100 hover:bg-slate-200 text-slate-700 font-bold rounded-xl cursor-pointer"
-                >
-                  Cancel
-                </button>
-                <button
-                  type="submit"
-                  className="px-4 py-2 bg-indigo-600 hover:bg-indigo-700 text-white font-extrabold rounded-xl shadow-xs cursor-pointer"
-                >
-                  Submit Deliverable
-                </button>
-              </div>
-            </form>
-          </div>
-        </div>
-      )}
+      {/* Real Multipart File Upload Modal for Scholar Deliverables */}
+      <FileUploadModal
+        isOpen={showSubmitModal}
+        onClose={() => setShowSubmitModal(false)}
+        onSuccess={() => {
+          loadData();
+        }}
+        isInternSelfUpload={true}
+        internProfile={internProfile}
+        user={user}
+      />
 
       {/* Official Certificate Preview Modal */}
       {previewCertModal && internProfile && (

@@ -108,27 +108,29 @@ export default function LoginModal() {
         setPassword('');
         setIsLoginModalOpen(false);
         
-        // Dynamic Role-Based Redirection with React Router
+        // Dynamic Role-Based Redirection based on authenticated user profile
+        const activeUser = JSON.parse(localStorage.getItem('assac_active_user') || '{}');
+        const role = activeUser.role || '';
         const key = username.toLowerCase().trim();
-        if (key === 'superadmin') {
+
+        if (role === 'Super Admin' || key === 'superadmin') {
           navigate('/superadmin');
-        } else if (selectedRoleId === 'admin' || key === 'admin') {
+        } else if (role === 'Office Admin' || role === 'Admin' || key === 'admin') {
           navigate('/office-admin');
-        } else if (selectedRoleId === 'ims' || key === 'ims') {
+        } else if (role === 'IMS Admin' || role === 'IMS Officer' || key === 'ims') {
           navigate('/ims-admin');
-        } else if (selectedRoleId === 'employee' || key === 'employee') {
+        } else if (role === 'Employee' || key === 'employee') {
           navigate('/employee-portal');
-        } else if (selectedRoleId === 'intern' || key === 'intern') {
+        } else if (role === 'Intern' || key === 'intern') {
           navigate('/intern-portal');
+        } else if (selectedRoleId === 'employee') {
+          navigate('/employee-portal');
+        } else if (selectedRoleId === 'intern') {
+          navigate('/intern-portal');
+        } else if (selectedRoleId === 'ims') {
+          navigate('/ims-admin');
         } else {
-          // Default role check from saved active user
-          const activeUser = JSON.parse(localStorage.getItem('assac_active_user') || '{}');
-          if (activeUser.role === 'Super Admin') navigate('/superadmin');
-          else if (activeUser.role === 'Office Admin' || activeUser.role === 'Admin') navigate('/office-admin');
-          else if (activeUser.role === 'IMS Admin' || activeUser.role === 'IMS Officer') navigate('/ims-admin');
-          else if (activeUser.role === 'Employee') navigate('/employee-portal');
-          else if (activeUser.role === 'Intern') navigate('/intern-portal');
-          else navigate('/hub');
+          navigate('/office-admin');
         }
       }
     } finally {

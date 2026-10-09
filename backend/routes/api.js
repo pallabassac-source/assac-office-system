@@ -8,12 +8,14 @@ const attendanceController = require('../controllers/attendance_controller');
 const internController = require('../controllers/intern_controller');
 const employeeController = require('../controllers/employee_controller');
 const departmentController = require('../controllers/department_controller');
+const formsController = require('../controllers/forms_controller');
 const authController = require('../controllers/auth_controller');
 const aiController = require('../controllers/ai_controller');
 const timeService = require('../services/time_service');
+const storageService = require('../services/storage_service');
 
-// Configure multer file upload
-const uploadsDir = process.env.UPLOADS_DIR || path.resolve(__dirname, '../../uploads');
+// Configure multer file upload for attendance Excel
+const uploadsDir = storageService.getRootDir();
 if (!fs.existsSync(uploadsDir)) {
   fs.mkdirSync(uploadsDir, { recursive: true });
 }
@@ -28,7 +30,7 @@ const storage = multer.diskStorage({
 
 const upload = multer({
   storage,
-  limits: { fileSize: 20 * 1024 * 1024 }, // 20 MB max
+  limits: { fileSize: 50 * 1024 * 1024 }, // 50 MB max for Excel
   fileFilter: (req, file, cb) => {
     if (file.originalname.match(/\.(xls|xlsx)$/i)) {
       cb(null, true);
@@ -37,6 +39,10 @@ const upload = multer({
     }
   }
 });
+
+// Configure high-capacity streaming Multer for documents, deliverables & network files (Supports up to 10 GB)
+const uploadDocument = storageService.createMulterUpload('deliverables', 10 * 1024 * 1024 * 1024);
+const uploadForm = storageService.createMulterUpload('forms', 10 * 1024 * 1024 * 1024);
 
 // ==========================================
 // 1. AUTHENTICATION & SYSTEM USERS (SUPER ADMIN)
@@ -53,7 +59,9 @@ router.get('/email/status', authController.getEmailServiceStatus);
 router.get('/interns', internController.getInterns);
 router.post('/interns', internController.createIntern);
 router.get('/interns/documents', internController.getDocuments);
-router.post('/interns/documents', internController.createDocument);
+router.post('/interns/documents', uploadDocument.single('file'), (req, res, next) => internController.createDocument(req, res, next));
+router.get('/interns/documents/:id/download', internController.downloadDocument);
+router.get('/interns/documents/:id/view', internController.viewDocument);
 router.delete('/interns/documents/:id', internController.deleteDocument);
 router.get('/interns/:id', internController.getInternDetail);
 router.put('/interns/:id', internController.updateIntern);
@@ -61,6 +69,13 @@ router.post('/interns/:id/certificate', internController.issueCertificate);
 router.get('/interns/:id/certificate/pdf', internController.downloadCertificate);
 router.post('/interns/:id/certificate/email', internController.emailCertificate);
 router.delete('/interns/:id', internController.deleteIntern);
+
+// ==========================================
+// 2B. STORAGE VAULT & LAN NETWORK FILE HUB
+// ==========================================
+router.get('/storage/status', internController.getStorageStatus);
+router.get('/system/storage', internController.getStorageStatus);
+router.post('/storage/upload', uploadDocument.single('file'), (req, res, next) => internController.createDocument(req, res, next));
 
 // ==========================================
 // 3. EMPLOYEE & CREDENTIALS MANAGEMENT (OFFICE ADMIN)
@@ -78,6 +93,17 @@ router.delete('/employees/:id', employeeController.deleteEmployee);
 router.get('/departments', departmentController.getDepartments);
 router.post('/departments', departmentController.createDepartment);
 router.delete('/departments/:name', departmentController.deleteDepartment);
+
+// ==========================================
+// 4B. OFFICIAL FORMS & FORMATS DESK (OFFICE ADMIN)
+// ==========================================
+router.get('/forms', formsController.getForms);
+router.get('/forms/:id', formsController.getFormById);
+router.post('/forms', uploadForm.single('file'), (req, res, next) => formsController.createForm(req, res, next));
+router.put('/forms/:id', uploadForm.single('file'), (req, res, next) => formsController.updateForm(req, res, next));
+router.delete('/forms/:id', formsController.deleteForm);
+router.get('/forms/:id/download', formsController.downloadForm);
+router.get('/forms/:id/view', formsController.viewForm);
 
 // ==========================================
 // 5. ATTENDANCE & EXCEL INGESTION ROUTES

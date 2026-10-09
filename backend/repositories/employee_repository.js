@@ -106,8 +106,11 @@ class EmployeeRepository {
           biometric_attendance: false
         });
 
-        await insertUser.run(username, email, password, name, designation, permissions, empId);
-        await db.prepare('UPDATE employees SET user_id = ? WHERE id = ?').run(empId, empId);
+        const userRes = await insertUser.run(username, email, password, name, designation, permissions, empId);
+        const createdUserId = userRes ? (userRes.lastID || userRes.id) : null;
+        if (createdUserId) {
+          await db.prepare('UPDATE employees SET user_id = ? WHERE id = ?').run(createdUserId, empId);
+        }
       } catch (err) {
         console.warn('[EmployeeRepository] Note creating employee user account:', err.message);
       }
@@ -136,7 +139,14 @@ class EmployeeRepository {
       VALUES (?, 'CREATE_EMPLOYEE', ?)
     `).run(userId, `Created employee ${name} (${empCode}) in department ${department}`);
 
-    return await this.getEmployeeById(empId);
+    const resultRecord = await this.getEmployeeById(empId);
+    if (credentials.password) {
+      resultRecord.created_credentials = {
+        username: credentials.username ? credentials.username.trim() : empCode.toLowerCase(),
+        password: credentials.password.trim()
+      };
+    }
+    return resultRecord;
   }
 
   /**
@@ -193,12 +203,17 @@ class EmployeeRepository {
         biometric_attendance: false
       });
 
-      await db.prepare(`
+      const userRes = await db.prepare(`
         INSERT INTO users (
           username, email, password_hash, full_name, designation,
           role_name, role_id, module_permissions, status, employee_id
         ) VALUES (?, ?, ?, ?, ?, 'Employee', 4, ?, 'Active', ?)
       `).run(uname, emp.email || `${uname}@assac.internal`, pass, emp.name, emp.designation, permissions, emp.id);
+
+      const newUserId = userRes ? (userRes.lastID || userRes.id) : null;
+      if (newUserId) {
+        await db.prepare('UPDATE employees SET user_id = ? WHERE id = ?').run(newUserId, emp.id);
+      }
     }
 
     // Dispatch email notification

@@ -2,6 +2,7 @@ import React from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 import HolidayCalendarWidget from '../components/HolidayCalendarWidget';
+import StorageDiskGauge from '../components/StorageDiskGauge';
 import { 
   Building2, 
   Clock, 
@@ -63,6 +64,9 @@ export default function InternalHubView() {
           </div>
         </div>
       </div>
+
+      {/* High-Capacity Intranet Storage Volume (/data 1TB) */}
+      <StorageDiskGauge />
 
       {/* Official Holiday & Current Month Calendar Widget */}
       <HolidayCalendarWidget />
