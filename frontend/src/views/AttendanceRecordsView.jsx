@@ -73,19 +73,17 @@ export default function AttendanceRecordsView({ month, year }) {
     password: ''
   });
 
-  // RBAC Gating
+  // Strict RBAC & Granular Permission Gating
+  const isSuperAdmin = user?.role === 'Super Admin' || user?.permissions?.super_admin === true;
   const isAuthorized = user.isAuthenticated && (
-    user.role === 'Super Admin' ||
-    user.role === 'Office Admin' ||
-    user.role === 'Admin' ||
-    user.permissions?.super_admin ||
+    isSuperAdmin ||
     user.permissions?.biometric_attendance === true
   );
 
-  const canManageEmployees = user.role === 'Super Admin' || 
-                            user.role === 'Office Admin' || 
-                            user.role === 'Admin' || 
-                            user.permissions?.intern_onboarding;
+  const canManageEmployees = user?.isAuthenticated && (
+    isSuperAdmin || 
+    ((user.role === 'Office Admin' || user.role === 'Admin') && user.permissions?.biometric_attendance === true)
+  );
 
   if (!isAuthorized) {
     return (

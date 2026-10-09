@@ -55,14 +55,20 @@ export default function OfficeAdminDashboardView({
     setSearchParams({ tab: tabId });
   };
 
-  // RBAC Gating
+  // Strict RBAC & Granular Permissions Gating
+  const isSuperAdmin = user?.role === 'Super Admin' || user?.permissions?.super_admin === true;
+  const hasBiometricAccess = isSuperAdmin || user?.permissions?.biometric_attendance === true;
+  const hasInternAccess = isSuperAdmin || user?.permissions?.intern_onboarding === true;
+  const hasFormsAccess = isSuperAdmin || user?.permissions?.forms_downloads === true;
+  const hasAuditAccess = isSuperAdmin;
+
+  // User must possess at least one granted permission to enter Office Admin workspace
   const isAuthorized = user?.isAuthenticated && (
-    user.role === 'Super Admin' ||
-    user.role === 'Office Admin' ||
-    user.role === 'Admin' ||
-    user.permissions?.super_admin ||
-    user.permissions?.biometric_attendance === true ||
-    user.permissions?.intern_onboarding === true
+    isSuperAdmin ||
+    hasBiometricAccess ||
+    hasInternAccess ||
+    hasFormsAccess ||
+    hasAuditAccess
   );
 
   if (!isAuthorized) {
@@ -70,7 +76,7 @@ export default function OfficeAdminDashboardView({
       <RestrictedAccessView 
         moduleName="Office Operations & Administrative Workspace"
         permissionKey="biometric_attendance"
-        description="Access to the Office Administration Portal, Biometric Attendance Engine, Employee Management, Intern Onboarding & E-Certificate Issuance Desk is restricted to Office Admin."
+        description="Access to the Office Administration Portal has been restricted. Your account does not have active module permissions granted by Super Admin."
         requiredRole="Office Admin"
       />
     );
@@ -240,65 +246,159 @@ export default function OfficeAdminDashboardView({
         })}
       </div>
 
-      {/* 4. Main View Area */}
+      {/* 4. Main View Area with Granular Permission Enforcement */}
       <div className="space-y-6">
+        {/* Biometrics Suite (requires biometric_attendance) */}
         {activeTab === 'dashboard' && (
-          <DashboardView
-            month={month || selectedMonth || (new Date().getMonth() + 1)}
-            year={year || selectedYear || new Date().getFullYear()}
-            onNavigateToRecords={() => setActiveTab('records')}
-            onNavigateToUpload={() => setActiveTab('upload')}
-          />
+          hasBiometricAccess ? (
+            <DashboardView
+              month={month || selectedMonth || (new Date().getMonth() + 1)}
+              year={year || selectedYear || new Date().getFullYear()}
+              onNavigateToRecords={() => setActiveTab('records')}
+              onNavigateToUpload={() => setActiveTab('upload')}
+            />
+          ) : (
+            <RestrictedAccessView
+              moduleName="Executive Workforce & Attendance Dashboard"
+              permissionKey="biometric_attendance"
+              description="Access to executive workforce metrics and biometric attendance indicators has been disabled for your account by Super Admin."
+              requiredRole="Office Admin"
+            />
+          )
         )}
 
         {activeTab === 'records' && (
-          <AttendanceRecordsView
-            month={month || selectedMonth || (new Date().getMonth() + 1)}
-            year={year || selectedYear || new Date().getFullYear()}
-          />
-        )}
-
-        {activeTab === 'employees' && (
-          <EmployeeManagementView />
-        )}
-
-        {activeTab === 'interns' && (
-          <InternManagementView defaultTab="directory" />
-        )}
-
-        {activeTab === 'certificates' && (
-          <InternManagementView defaultTab="certificates" />
+          hasBiometricAccess ? (
+            <AttendanceRecordsView
+              month={month || selectedMonth || (new Date().getMonth() + 1)}
+              year={year || selectedYear || new Date().getFullYear()}
+            />
+          ) : (
+            <RestrictedAccessView
+              moduleName="Biometric Attendance Ledger"
+              permissionKey="biometric_attendance"
+              description="Access to employee punch records, biometric ledger, and overtime tracking has been disabled for your account by Super Admin."
+              requiredRole="Office Admin"
+            />
+          )
         )}
 
         {activeTab === 'upload' && (
-          <ExcelUploadView
-            onIngestSuccess={() => {
-              if (onRefresh) onRefresh();
-              setActiveTab('exports');
-            }}
-          />
+          hasBiometricAccess ? (
+            <ExcelUploadView
+              onIngestSuccess={() => {
+                if (onRefresh) onRefresh();
+                setActiveTab('exports');
+              }}
+            />
+          ) : (
+            <RestrictedAccessView
+              moduleName="Monthly Excel Ingestion Hub"
+              permissionKey="biometric_attendance"
+              description="Access to monthly biometric workbook ingestion and period processing has been disabled for your account by Super Admin."
+              requiredRole="Office Admin"
+            />
+          )
         )}
 
         {activeTab === 'analytics' && (
-          <AnalyticsView
-            month={month || selectedMonth || (new Date().getMonth() + 1)}
-            year={year || selectedYear || new Date().getFullYear()}
-          />
+          hasBiometricAccess ? (
+            <AnalyticsView
+              month={month || selectedMonth || (new Date().getMonth() + 1)}
+              year={year || selectedYear || new Date().getFullYear()}
+            />
+          ) : (
+            <RestrictedAccessView
+              moduleName="Attendance Analytics & Trends"
+              permissionKey="biometric_attendance"
+              description="Access to attendance analytics, overtime leaderboards, and punctuality indices has been disabled for your account by Super Admin."
+              requiredRole="Office Admin"
+            />
+          )
         )}
 
         {activeTab === 'exports' && (
-          <ExportsView
-            month={month || selectedMonth || (new Date().getMonth() + 1)}
-            year={year || selectedYear || new Date().getFullYear()}
-          />
+          hasBiometricAccess ? (
+            <ExportsView
+              month={month || selectedMonth || (new Date().getMonth() + 1)}
+              year={year || selectedYear || new Date().getFullYear()}
+            />
+          ) : (
+            <RestrictedAccessView
+              moduleName="Report & Register Export Center"
+              permissionKey="biometric_attendance"
+              description="Access to official Excel registers and printable PDF attendance summaries has been disabled for your account by Super Admin."
+              requiredRole="Office Admin"
+            />
+          )
         )}
 
+        {activeTab === 'employees' && (
+          hasBiometricAccess ? (
+            <EmployeeManagementView />
+          ) : (
+            <RestrictedAccessView
+              moduleName="Staff Directory & HR Provisioning"
+              permissionKey="biometric_attendance"
+              description="Access to staff records, employee creation, department assignment, and credential resets has been disabled for your account by Super Admin."
+              requiredRole="Office Admin"
+            />
+          )
+        )}
+
+        {/* Intern Suite (requires intern_onboarding) */}
+        {activeTab === 'interns' && (
+          hasInternAccess ? (
+            <InternManagementView defaultTab="directory" />
+          ) : (
+            <RestrictedAccessView
+              moduleName="Intern Scholar Onboarding Desk"
+              permissionKey="intern_onboarding"
+              description="Access to research intern registrations, supervisors, and academic records has been disabled for your account by Super Admin."
+              requiredRole="Office Admin"
+            />
+          )
+        )}
+
+        {activeTab === 'certificates' && (
+          hasInternAccess ? (
+            <InternManagementView defaultTab="certificates" />
+          ) : (
+            <RestrictedAccessView
+              moduleName="E-Certificate Issuance Desk"
+              permissionKey="intern_onboarding"
+              description="Access to completion e-certificate generation, verification, and email dispatch has been disabled for your account by Super Admin."
+              requiredRole="Office Admin"
+            />
+          )
+        )}
+
+        {/* Forms Suite (requires forms_downloads) */}
         {activeTab === 'forms' && (
-          <FormsDownloadsView />
+          hasFormsAccess ? (
+            <FormsDownloadsView />
+          ) : (
+            <RestrictedAccessView
+              moduleName="Official Forms & Formats Desk"
+              permissionKey="forms_downloads"
+              description="Access to official office applications, requisition formats, and template management has been disabled for your account by Super Admin."
+              requiredRole="Office Admin"
+            />
+          )
         )}
 
+        {/* Audit Suite (requires super_admin) */}
         {activeTab === 'audit' && (
-          <AuditLogsView />
+          hasAuditAccess ? (
+            <AuditLogsView />
+          ) : (
+            <RestrictedAccessView
+              moduleName="System Security Audit Trail"
+              permissionKey="super_admin"
+              description="Access to administrative trace logs and system modification history is strictly restricted to Super Admin."
+              requiredRole="Super Admin"
+            />
+          )
         )}
       </div>
 

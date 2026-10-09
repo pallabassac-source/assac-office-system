@@ -12,9 +12,8 @@ export default function AnalyticsView({ month, year }) {
 
   const isAuthorized = user.isAuthenticated && (
     user.role === 'Super Admin' ||
-    user.role === 'Office Admin' ||
-    user.role === 'Admin' ||
-    user.permissions?.biometric_attendance
+    user.permissions?.super_admin === true ||
+    user.permissions?.biometric_attendance === true
   );
 
   if (!isAuthorized) {

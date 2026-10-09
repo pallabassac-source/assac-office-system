@@ -79,12 +79,10 @@ export default function AiSuiteView() {
   const { timeString12h } = useServerTime();
 
   // Authorization check
-  const isAuthorized = user.isAuthenticated && (
-    user.role === 'Super Admin' ||
-    user.role === 'Office Admin' ||
-    user.role === 'IMS Admin' ||
-    user.permissions?.ai_suite ||
-    true // Available for all authenticated intranet staff
+  const isSuperAdmin = user?.role === 'Super Admin' || user?.permissions?.super_admin === true;
+  const isAuthorized = user?.isAuthenticated && (
+    isSuperAdmin ||
+    user?.permissions?.ai_suite === true
   );
 
   // Layout & Navigation State

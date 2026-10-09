@@ -9,12 +9,11 @@ export default function AuditLogsView() {
   const [logs, setLogs] = useState([]);
   const [loading, setLoading] = useState(true);
 
-  const isAuthorized = user.isAuthenticated && (
-    user.role === 'Super Admin' ||
-    user.role === 'Office Admin' ||
-    user.role === 'Admin' ||
-    user.role === 'IMS Admin' ||
-    user.permissions?.super_admin
+  const isSuperAdmin = user?.role === 'Super Admin' || user?.permissions?.super_admin === true;
+  const isAuthorized = user?.isAuthenticated && (
+    isSuperAdmin ||
+    ((user.role === 'Office Admin' || user.role === 'Admin') && user?.permissions?.biometric_attendance === true) ||
+    ((user.role === 'IMS Admin' || user.role === 'IMS Officer') && user?.permissions?.ims_access === true)
   );
 
   if (!isAuthorized) {

@@ -124,7 +124,7 @@ export default function Navbar({
           </div>
 
           {/* Period Selector (Month/Year with Ingested Counts) */}
-          {(user.role === 'Super Admin' || user.role === 'Office Admin' || user.role === 'Admin') && (
+          {(user.role === 'Super Admin' || user.permissions?.super_admin || user.permissions?.biometric_attendance) && (
             <div className="flex items-center gap-1 bg-slate-50 px-2 py-1 rounded-lg border border-slate-300 text-xs shadow-2xs">
               <span className="text-slate-500 font-medium hidden sm:inline text-[11px]">Period:</span>
               <select 
@@ -245,7 +245,7 @@ export default function Navbar({
           )}
 
           {/* OFFICE ADMIN MAIN ROUTE TAB */}
-          {(user.role === 'Super Admin' || user.role === 'Office Admin' || user.role === 'Admin') && (
+          {(user.role === 'Super Admin' || user.permissions?.super_admin || ((user.role === 'Office Admin' || user.role === 'Admin') && (user.permissions?.biometric_attendance || user.permissions?.intern_onboarding || user.permissions?.forms_downloads))) && (
             <button
               onClick={() => handlePortalClick('/office-admin')}
               className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg font-extrabold uppercase text-[11px] tracking-wider transition-all whitespace-nowrap cursor-pointer ${
@@ -260,7 +260,7 @@ export default function Navbar({
           )}
 
           {/* IMS ADMIN SPECIFIC TAB */}
-          {(user.role === 'Super Admin' || user.role === 'IMS Admin' || user.role === 'IMS Officer') && (
+          {(user.role === 'Super Admin' || user.permissions?.super_admin || ((user.role === 'IMS Admin' || user.role === 'IMS Officer') && (user.permissions?.ims_access || user.permissions?.intern_onboarding)) || (user.permissions?.ims_access)) && (
             <button
               onClick={() => handlePortalClick('/ims-admin')}
               className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg font-extrabold uppercase text-[11px] tracking-wider transition-all whitespace-nowrap cursor-pointer ${
@@ -305,30 +305,34 @@ export default function Navbar({
           )}
 
           {/* Forms & Downloads */}
-          <button
-            onClick={() => handlePortalClick('/forms')}
-            className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg font-extrabold uppercase text-[11px] tracking-wider transition-all whitespace-nowrap cursor-pointer ${
-              currentPath === '/forms'
-                ? 'bg-indigo-600 text-white shadow-xs'
-                : 'text-slate-600 hover:text-indigo-700 hover:bg-white border border-transparent hover:border-slate-200'
-            }`}
-          >
-            <FileText className="h-3.5 w-3.5" />
-            <span>Employee Forms</span>
-          </button>
+          {(user.role === 'Super Admin' || user.permissions?.super_admin || user.permissions?.forms_downloads) && (
+            <button
+              onClick={() => handlePortalClick('/forms')}
+              className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg font-extrabold uppercase text-[11px] tracking-wider transition-all whitespace-nowrap cursor-pointer ${
+                currentPath === '/forms'
+                  ? 'bg-indigo-600 text-white shadow-xs'
+                  : 'text-slate-600 hover:text-indigo-700 hover:bg-white border border-transparent hover:border-slate-200'
+              }`}
+            >
+              <FileText className="h-3.5 w-3.5" />
+              <span>Employee Forms</span>
+            </button>
+          )}
 
           {/* AI Suite */}
-          <button
-            onClick={() => handlePortalClick('/ai')}
-            className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg font-extrabold uppercase text-[11px] tracking-wider transition-all whitespace-nowrap cursor-pointer ${
-              currentPath === '/ai'
-                ? 'bg-amber-500 text-indigo-950 shadow-xs font-extrabold'
-                : 'bg-amber-100/70 text-amber-900 hover:bg-amber-200 border border-amber-200'
-            }`}
-          >
-            <Sparkles className="h-3.5 w-3.5 text-amber-600" />
-            <span>AI Utility Suite</span>
-          </button>
+          {(user.role === 'Super Admin' || user.permissions?.super_admin || user.permissions?.ai_suite) && (
+            <button
+              onClick={() => handlePortalClick('/ai')}
+              className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg font-extrabold uppercase text-[11px] tracking-wider transition-all whitespace-nowrap cursor-pointer ${
+                currentPath === '/ai'
+                  ? 'bg-amber-500 text-indigo-950 shadow-xs font-extrabold'
+                  : 'bg-amber-100/70 text-amber-900 hover:bg-amber-200 border border-amber-200'
+              }`}
+            >
+              <Sparkles className="h-3.5 w-3.5 text-amber-600" />
+              <span>AI Utility Suite</span>
+            </button>
+          )}
         </div>
       </div>
 

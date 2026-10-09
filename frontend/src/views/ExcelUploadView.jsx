@@ -51,10 +51,8 @@ export default function ExcelUploadView({ onIngestSuccess }) {
 
   const isAuthorized = user.isAuthenticated && (
     user.role === 'Super Admin' ||
-    user.role === 'Office Admin' ||
-    user.role === 'Admin' ||
-    user.permissions?.excel_upload ||
-    user.permissions?.biometric_attendance
+    user.permissions?.super_admin === true ||
+    (user.permissions?.biometric_attendance === true && user.permissions?.excel_upload !== false)
   );
 
   const fetchPeriods = async () => {

@@ -40,15 +40,11 @@ export default function ImsAdminDashboardView() {
   };
 
   // RBAC Gating
+  const isSuperAdmin = user?.role === 'Super Admin' || user?.permissions?.super_admin === true;
   const isAuthorized = user?.isAuthenticated && (
-    user.role === 'Super Admin' ||
-    user.role === 'IMS Admin' ||
-    user.role === 'IMS Officer' ||
-    user.role === 'Office Admin' ||
-    user.role === 'Admin' ||
-    user.permissions?.ims_access === true ||
-    user.permissions?.intern_onboarding === true ||
-    user.permissions?.super_admin === true
+    isSuperAdmin ||
+    user?.permissions?.ims_access === true ||
+    user?.permissions?.intern_onboarding === true
   );
 
   if (!isAuthorized) {

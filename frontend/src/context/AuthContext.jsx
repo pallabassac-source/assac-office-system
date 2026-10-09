@@ -128,7 +128,22 @@ export const AuthProvider = ({ children }) => {
       const saved = localStorage.getItem('assac_active_user');
       if (saved) {
         const parsed = JSON.parse(saved);
-        if (parsed && parsed.isAuthenticated) return parsed;
+        if (parsed && parsed.isAuthenticated) {
+          // Sync with persisted system accounts if available
+          const savedAccounts = localStorage.getItem('assac_system_users');
+          if (savedAccounts) {
+            const accounts = JSON.parse(savedAccounts);
+            const fresh = accounts.find(u => 
+              (u.username && u.username.toLowerCase() === parsed.username?.toLowerCase()) ||
+              (u.id && parsed.id && u.id === parsed.id)
+            );
+            if (fresh && fresh.permissions) {
+              parsed.permissions = fresh.permissions;
+              parsed.role = fresh.role || parsed.role;
+            }
+          }
+          return parsed;
+        }
       }
     } catch (e) {
       console.warn('Failed to parse active user session from localStorage', e);
@@ -158,6 +173,27 @@ export const AuthProvider = ({ children }) => {
           try {
             localStorage.setItem('assac_system_users', JSON.stringify(res.data));
           } catch (e) {}
+
+          // Synchronize active user permissions immediately
+          setUser(currentUser => {
+            if (!currentUser || !currentUser.isAuthenticated) return currentUser;
+            const fresh = res.data.find(u => 
+              (u.username && u.username.toLowerCase() === currentUser.username?.toLowerCase()) ||
+              (u.id && currentUser.id && u.id === currentUser.id)
+            );
+            if (fresh) {
+              const updated = {
+                ...currentUser,
+                role: fresh.role || currentUser.role,
+                permissions: fresh.permissions ? { ...fresh.permissions } : currentUser.permissions
+              };
+              try {
+                localStorage.setItem('assac_active_user', JSON.stringify(updated));
+              } catch (e) {}
+              return updated;
+            }
+            return currentUser;
+          });
         }
       })
       .catch(() => {});
@@ -196,6 +232,26 @@ export const AuthProvider = ({ children }) => {
         localStorage.setItem('assac_system_users', JSON.stringify(updated));
       } catch (e) {}
       return updated;
+    });
+
+    // Propagate updated permissions immediately to the active session if matched
+    setUser(prevUser => {
+      if (prevUser?.isAuthenticated && (
+        (userData.username && prevUser.username?.toLowerCase() === userData.username.toLowerCase()) ||
+        (userData.id && prevUser.id === userData.id)
+      )) {
+        const updated = {
+          ...prevUser,
+          ...userData,
+          permissions: userData.permissions ? { ...userData.permissions } : prevUser.permissions,
+          isAuthenticated: true
+        };
+        try {
+          localStorage.setItem('assac_active_user', JSON.stringify(updated));
+        } catch (e) {}
+        return updated;
+      }
+      return prevUser;
     });
   };
 

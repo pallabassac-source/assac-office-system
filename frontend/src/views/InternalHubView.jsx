@@ -2,7 +2,6 @@ import React from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 import HolidayCalendarWidget from '../components/HolidayCalendarWidget';
-import StorageDiskGauge from '../components/StorageDiskGauge';
 import { 
   Building2, 
   Clock, 
@@ -64,9 +63,6 @@ export default function InternalHubView() {
           </div>
         </div>
       </div>
-
-      {/* High-Capacity Intranet Storage Volume (/data 1TB) */}
-      <StorageDiskGauge />
 
       {/* Official Holiday & Current Month Calendar Widget */}
       <HolidayCalendarWidget />
@@ -189,65 +185,69 @@ export default function InternalHubView() {
           )}
 
           {/* Service Desk 4: IMS Document Clearance & Archive */}
-          <div 
-            onClick={() => navigate('/ims-admin')}
-            className="bg-white rounded-2xl border border-slate-200 overflow-hidden flex flex-col justify-between cursor-pointer group shadow-2xs hover:shadow-md hover:border-sky-400 transition-all duration-200"
-          >
-            <div>
-              <div className="bg-sky-50/70 px-4 py-2.5 border-b border-sky-100 flex items-center justify-between">
-                <span className="text-sky-800 font-mono font-extrabold text-xs">DESK-04 • IMS MANAGEMENT SYSTEM</span>
-                <BookOpen className="h-4 w-4 text-sky-600" />
-              </div>
-              <div className="p-5 space-y-2 text-xs">
-                <h3 className="font-extrabold text-slate-900 text-sm group-hover:text-sky-700 transition-colors">
-                  IMS Document & Clearance Desk
-                </h3>
-                <p className="text-slate-600 text-xs leading-relaxed font-normal">
-                  Internal Management System clearance for intern research archives, university verification logs, and certificate approvals.
-                </p>
-                <div className="pt-2 text-[11px] font-mono text-slate-500 flex justify-between border-t border-slate-100">
-                  <span>Archive: 42 Files</span>
-                  <span className="font-bold text-sky-700">IMS Officer</span>
+          {(user?.role === 'Super Admin' || user?.permissions?.super_admin || user?.permissions?.ims_access || user?.permissions?.intern_onboarding) && (
+            <div 
+              onClick={() => navigate('/ims-admin')}
+              className="bg-white rounded-2xl border border-slate-200 overflow-hidden flex flex-col justify-between cursor-pointer group shadow-2xs hover:shadow-md hover:border-sky-400 transition-all duration-200"
+            >
+              <div>
+                <div className="bg-sky-50/70 px-4 py-2.5 border-b border-sky-100 flex items-center justify-between">
+                  <span className="text-sky-800 font-mono font-extrabold text-xs">DESK-04 • IMS MANAGEMENT SYSTEM</span>
+                  <BookOpen className="h-4 w-4 text-sky-600" />
+                </div>
+                <div className="p-5 space-y-2 text-xs">
+                  <h3 className="font-extrabold text-slate-900 text-sm group-hover:text-sky-700 transition-colors">
+                    IMS Document & Clearance Desk
+                  </h3>
+                  <p className="text-slate-600 text-xs leading-relaxed font-normal">
+                    Internal Management System clearance for intern research archives, university verification logs, and certificate approvals.
+                  </p>
+                  <div className="pt-2 text-[11px] font-mono text-slate-500 flex justify-between border-t border-slate-100">
+                    <span>Archive: 42 Files</span>
+                    <span className="font-bold text-sky-700">IMS Officer</span>
+                  </div>
                 </div>
               </div>
-            </div>
 
-            <div className="p-3 bg-slate-50 border-t border-slate-200 flex items-center justify-between text-xs font-bold text-sky-700">
-              <span>Open IMS Desk</span>
-              <ArrowRight className="h-4 w-4 group-hover:translate-x-1 transition-transform text-sky-600" />
+              <div className="p-3 bg-slate-50 border-t border-slate-200 flex items-center justify-between text-xs font-bold text-sky-700">
+                <span>Open IMS Desk</span>
+                <ArrowRight className="h-4 w-4 group-hover:translate-x-1 transition-transform text-sky-600" />
+              </div>
             </div>
-          </div>
+          )}
 
           {/* Service Desk 5: Internal AI Employee Utility Suite */}
-          <div 
-            onClick={() => navigate('/ai')}
-            className="bg-white rounded-2xl border border-amber-300 overflow-hidden flex flex-col justify-between cursor-pointer group shadow-2xs hover:shadow-md hover:border-amber-400 transition-all duration-200 col-span-1 sm:col-span-2 lg:col-span-1"
-          >
-            <div>
-              <div className="bg-amber-500 px-4 py-2.5 border-b border-amber-400 flex items-center justify-between text-indigo-950">
-                <span className="font-mono font-extrabold text-xs">DESK-05 • AI UTILITY SUITE</span>
-                <Sparkles className="h-4 w-4 text-indigo-950" />
-              </div>
-              <div className="p-5 space-y-2 text-xs">
-                <h3 className="font-extrabold text-slate-900 text-sm group-hover:text-amber-700 transition-colors flex items-center gap-1.5">
-                  <span>ASSAC Enterprise Neural Desk</span>
-                  <span className="px-2 py-0.2 rounded-full text-[10px] font-bold bg-amber-100 text-amber-900 border border-amber-300">FREE USE</span>
-                </h3>
-                <p className="text-slate-600 text-xs leading-relaxed font-normal">
-                  ASSAC Neural Assistant, instant office image generator, presentation deck writer, meeting transcriber.
-                </p>
-                <div className="pt-2 text-[11px] font-mono text-slate-500 flex justify-between border-t border-slate-100">
-                  <span>Tools: 4 AI Utilities</span>
-                  <span className="font-bold text-amber-700">All Employees</span>
+          {(user?.role === 'Super Admin' || user?.permissions?.super_admin || user?.permissions?.ai_suite) && (
+            <div 
+              onClick={() => navigate('/ai')}
+              className="bg-white rounded-2xl border border-amber-300 overflow-hidden flex flex-col justify-between cursor-pointer group shadow-2xs hover:shadow-md hover:border-amber-400 transition-all duration-200 col-span-1 sm:col-span-2 lg:col-span-1"
+            >
+              <div>
+                <div className="bg-amber-500 px-4 py-2.5 border-b border-amber-400 flex items-center justify-between text-indigo-950">
+                  <span className="font-mono font-extrabold text-xs">DESK-05 • AI UTILITY SUITE</span>
+                  <Sparkles className="h-4 w-4 text-indigo-950" />
+                </div>
+                <div className="p-5 space-y-2 text-xs">
+                  <h3 className="font-extrabold text-slate-900 text-sm group-hover:text-amber-700 transition-colors flex items-center gap-1.5">
+                    <span>ASSAC Enterprise Neural Desk</span>
+                    <span className="px-2 py-0.2 rounded-full text-[10px] font-bold bg-amber-100 text-amber-900 border border-amber-300">FREE USE</span>
+                  </h3>
+                  <p className="text-slate-600 text-xs leading-relaxed font-normal">
+                    ASSAC Neural Assistant, instant office image generator, presentation deck writer, meeting transcriber.
+                  </p>
+                  <div className="pt-2 text-[11px] font-mono text-slate-500 flex justify-between border-t border-slate-100">
+                    <span>Tools: 4 AI Utilities</span>
+                    <span className="font-bold text-amber-700">All Employees</span>
+                  </div>
                 </div>
               </div>
-            </div>
 
-            <div className="p-3 bg-amber-50 border-t border-amber-200 flex items-center justify-between text-xs font-bold text-amber-800">
-              <span>Open AI Utility Desk</span>
-              <ArrowRight className="h-4 w-4 group-hover:translate-x-1 transition-transform text-amber-700" />
+              <div className="p-3 bg-amber-50 border-t border-amber-200 flex items-center justify-between text-xs font-bold text-amber-800">
+                <span>Open AI Utility Desk</span>
+                <ArrowRight className="h-4 w-4 group-hover:translate-x-1 transition-transform text-amber-700" />
+              </div>
             </div>
-          </div>
+          )}
 
         </div>
       </div>

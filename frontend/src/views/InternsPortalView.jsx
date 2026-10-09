@@ -178,15 +178,12 @@ export default function InternsPortalView({
   };
 
   // RESTRICT ACCESS CHECK FOR GUESTS / UNAUTHORIZED USERS
+  const isSuperAdmin = user?.role === 'Super Admin' || user?.permissions?.super_admin === true;
   const isAuthorized = user.isAuthenticated && (
-    user.role === 'Super Admin' ||
-    user.role === 'IMS Admin' ||
-    user.role === 'IMS Officer' ||
-    user.role === 'Office Admin' ||
-    user.role === 'Admin' ||
+    isSuperAdmin ||
     user.role === 'Intern' ||
-    user.permissions?.ims_access ||
-    user.permissions?.intern_onboarding
+    user.permissions?.ims_access === true ||
+    user.permissions?.intern_onboarding === true
   );
 
   if (!isAuthorized) {
@@ -240,12 +237,10 @@ export default function InternsPortalView({
   const paginatedDocuments = filteredDocuments.slice(indexOfFirstItem, indexOfLastItem);
 
   // Role permissions
-  const canOnboard = user.role === 'Super Admin' || 
-                     user.role === 'IMS Admin' || 
-                     user.role === 'IMS Officer' || 
-                     user.role === 'Office Admin' || 
-                     user.role === 'Admin' || 
-                     user.permissions?.intern_onboarding;
+  const canOnboard = user.isAuthenticated && (
+    isSuperAdmin || 
+    user.permissions?.intern_onboarding === true
+  );
 
   const handleOnboardSubmit = async (e) => {
     e.preventDefault();

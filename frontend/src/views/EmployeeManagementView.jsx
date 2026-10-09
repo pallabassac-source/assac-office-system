@@ -29,6 +29,7 @@ import {
   Plus,
   Briefcase
 } from 'lucide-react';
+import RestrictedAccessView from '../components/RestrictedAccessView';
 
 export default function EmployeeManagementView() {
   const { user } = useAuth();
@@ -135,10 +136,28 @@ export default function EmployeeManagementView() {
   const indexOfFirstItem = indexOfLastItem - itemsPerPage;
   const paginatedEmployees = filteredEmployees.slice(indexOfFirstItem, indexOfLastItem);
 
-  const canManage = user.role === 'Super Admin' || 
-                    user.role === 'Office Admin' || 
-                    user.role === 'Admin' || 
-                    user.permissions?.super_admin;
+  // Strict Permissions Check
+  const isSuperAdmin = user?.role === 'Super Admin' || user?.permissions?.super_admin === true;
+  const isAuthorized = user?.isAuthenticated && (
+    isSuperAdmin ||
+    user?.permissions?.biometric_attendance === true
+  );
+
+  const canManage = user?.isAuthenticated && (
+    isSuperAdmin ||
+    ((user.role === 'Office Admin' || user.role === 'Admin') && user?.permissions?.biometric_attendance === true)
+  );
+
+  if (!isAuthorized) {
+    return (
+      <RestrictedAccessView 
+        moduleName="Staff Directory & HR Provisioning"
+        permissionKey="biometric_attendance"
+        description="Access to staff records, employee creation, department assignment, and credential resets has been disabled for your account by Super Admin."
+        requiredRole="Office Admin"
+      />
+    );
+  }
 
   const handleCreateEmployeeSubmit = async (e) => {
     e.preventDefault();

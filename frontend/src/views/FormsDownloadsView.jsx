@@ -74,21 +74,16 @@ export default function FormsDownloadsView() {
 
   const fileInputRef = useRef(null);
 
+  const isSuperAdmin = user?.role === 'Super Admin' || user?.permissions?.super_admin === true;
+  const hasFormsPermission = isSuperAdmin || user?.permissions?.forms_downloads === true;
+
   const canManageForms = user?.isAuthenticated && (
-    user.role === 'Office Admin' || 
-    user.role === 'Admin' || 
-    user.role === 'Super Admin' ||
-    user.permissions?.super_admin === true
+    isSuperAdmin || 
+    ((user.role === 'Office Admin' || user.role === 'Admin') && hasFormsPermission)
   );
 
   // RBAC Gating
-  const isAuthorized = user?.isAuthenticated && (
-    user.role === 'Super Admin' ||
-    user.role === 'Office Admin' ||
-    user.role === 'Admin' ||
-    user.permissions?.forms_downloads ||
-    user.permissions?.super_admin
-  );
+  const isAuthorized = user?.isAuthenticated && hasFormsPermission;
 
   const fetchForms = async () => {
     try {

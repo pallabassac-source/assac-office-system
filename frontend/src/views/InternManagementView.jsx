@@ -47,6 +47,7 @@ import {
   Printer
 } from 'lucide-react';
 import CertificatePreviewModal from '../components/CertificatePreviewModal';
+import RestrictedAccessView from '../components/RestrictedAccessView';
 
 export default function InternManagementView({ defaultTab = 'directory' }) {
   const { user } = useAuth();
@@ -161,13 +162,29 @@ export default function InternManagementView({ defaultTab = 'directory' }) {
   const indexOfFirstItem = indexOfLastItem - itemsPerPage;
   const paginatedInterns = filteredInterns.slice(indexOfFirstItem, indexOfLastItem);
 
-  // Role permissions check
-  const canOnboard = user.role === 'Super Admin' || 
-                     user.role === 'Office Admin' || 
-                     user.role === 'Admin' || 
-                     user.role === 'IMS Admin' || 
-                     user.role === 'IMS Officer' || 
-                     user.permissions?.intern_onboarding;
+  // Strict RBAC Permissions check
+  const isSuperAdmin = user?.role === 'Super Admin' || user?.permissions?.super_admin === true;
+  const isAuthorized = user?.isAuthenticated && (
+    isSuperAdmin ||
+    user?.permissions?.intern_onboarding === true ||
+    user?.permissions?.ims_access === true
+  );
+
+  const canOnboard = user?.isAuthenticated && (
+    isSuperAdmin || 
+    user?.permissions?.intern_onboarding === true
+  );
+
+  if (!isAuthorized) {
+    return (
+      <RestrictedAccessView 
+        moduleName="Academic & Intern Affairs Management"
+        permissionKey="intern_onboarding"
+        description="Access to research intern registrations, supervisors, academic records, and completion certificate issuance has been restricted by Super Admin."
+        requiredRole="Office Admin"
+      />
+    );
+  }
 
   const handleOnboardSubmit = async (e) => {
     e.preventDefault();

@@ -55,10 +55,8 @@ export default function ExportsView({
 
   const isAuthorized = user.isAuthenticated && (
     user.role === 'Super Admin' ||
-    user.role === 'Office Admin' ||
-    user.role === 'Admin' ||
-    user.permissions?.biometric_attendance ||
-    user.permissions?.excel_upload
+    user.permissions?.super_admin === true ||
+    user.permissions?.biometric_attendance === true
   );
 
   // PDF Export Customization Options
