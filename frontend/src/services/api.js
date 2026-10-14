@@ -378,6 +378,17 @@ export const getTransferDownloadUrl = (key) => {
   return `${API_BASE_URL}/transfers/${encodeURIComponent(key)}/download`;
 };
 
+export const getTransferDirectDownloadUrl = (key) => {
+  const origin = typeof window !== 'undefined' ? window.location.origin : '';
+  const base = API_BASE_URL.startsWith('http') ? API_BASE_URL : `${origin}${API_BASE_URL}`;
+  return `${base}/transfers/${encodeURIComponent(key)}/download`;
+};
+
+export const getTransferPortalUrl = (key) => {
+  const origin = typeof window !== 'undefined' ? window.location.origin : '';
+  return `${origin}/transfer?key=${encodeURIComponent(key)}`;
+};
+
 export const getActiveTransfers = async () => {
   const res = await api.get('/transfers/active');
   return res.data;

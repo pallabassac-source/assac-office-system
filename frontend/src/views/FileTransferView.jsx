@@ -5,6 +5,8 @@ import {
   uploadTransferFile, 
   getTransferInfo, 
   getTransferDownloadUrl, 
+  getTransferDirectDownloadUrl,
+  getTransferPortalUrl,
   getActiveTransfers, 
   deleteTransferApi, 
   triggerTransferCleanup,
@@ -32,7 +34,8 @@ import {
   Timer,
   Zap,
   Lock,
-  ArrowRight
+  ArrowRight,
+  ExternalLink
 } from 'lucide-react';
 
 export default function FileTransferView() {
@@ -53,7 +56,8 @@ export default function FileTransferView() {
   const [uploadSuccessData, setUploadSuccessData] = useState(null);
   const [uploadError, setUploadError] = useState(null);
   const [copiedKey, setCopiedKey] = useState(false);
-  const [copiedLink, setCopiedLink] = useState(false);
+  const [copiedDirectLink, setCopiedDirectLink] = useState(false);
+  const [copiedPortalLink, setCopiedPortalLink] = useState(false);
   const fileInputRef = useRef(null);
 
   // RECEIVER STATE
@@ -79,9 +83,10 @@ export default function FileTransferView() {
   useEffect(() => {
     const keyFromUrl = searchParams.get('key');
     if (keyFromUrl) {
+      const shouldAutoDownload = searchParams.get('download') === '1' || searchParams.get('auto') === '1';
       setInputKey(keyFromUrl);
       setActiveTab('receive');
-      lookupFileByKey(keyFromUrl);
+      lookupFileByKey(keyFromUrl, shouldAutoDownload);
     }
   }, [searchParams]);
 
@@ -168,9 +173,12 @@ export default function FileTransferView() {
     if (type === 'key') {
       setCopiedKey(true);
       setTimeout(() => setCopiedKey(false), 2500);
-    } else {
-      setCopiedLink(true);
-      setTimeout(() => setCopiedLink(false), 2500);
+    } else if (type === 'direct') {
+      setCopiedDirectLink(true);
+      setTimeout(() => setCopiedDirectLink(false), 2500);
+    } else if (type === 'portal') {
+      setCopiedPortalLink(true);
+      setTimeout(() => setCopiedPortalLink(false), 2500);
     }
   };
 
@@ -188,7 +196,7 @@ export default function FileTransferView() {
     }
   };
 
-  const lookupFileByKey = async (key) => {
+  const lookupFileByKey = async (key, autoDownload = false) => {
     if (!key || key.length !== 3) {
       setReceiverError('Please enter a 3-digit key (e.g. 742).');
       return;
@@ -202,6 +210,9 @@ export default function FileTransferView() {
       const res = await getTransferInfo(key);
       if (res && res.success && res.data) {
         setReceiverFile(res.data);
+        if (autoDownload) {
+          handleDownloadFile(key);
+        }
       } else {
         setReceiverError(res?.error || 'Invalid or expired key. Files are kept for 24 hours only.');
       }
@@ -220,20 +231,15 @@ export default function FileTransferView() {
     setIsDownloading(true);
     const url = getTransferDownloadUrl(key);
     
-    // Create temporary anchor to trigger native browser download
-    const a = document.createElement('a');
-    a.href = url;
-    a.setAttribute('download', receiverFile?.file_name || 'file');
-    document.body.appendChild(a);
-    a.click();
-    document.body.removeChild(a);
+    // Direct location assignment triggers native browser download
+    // because server sends Content-Disposition: attachment
+    window.location.href = url;
 
     setTimeout(() => {
       setIsDownloading(false);
       // Refresh count
-      lookupFileByKey(key);
       fetchActiveTransfers();
-    }, 1500);
+    }, 2000);
   };
 
   const handleDeleteTransfer = async (key) => {
@@ -410,25 +416,41 @@ export default function FileTransferView() {
                 </div>
               </div>
 
-              {/* Action Buttons: Copy Key & Share Direct Link */}
-              <div className="flex items-center justify-center gap-3 flex-wrap">
+              {/* Action Buttons: Copy Key, Direct Download Link & Web Link */}
+              <div className="flex flex-col sm:flex-row items-center justify-center gap-3">
                 <button
+                  type="button"
                   onClick={() => copyToClipboard(uploadSuccessData.transfer_key, 'key')}
-                  className="flex items-center gap-2 px-5 py-2.5 rounded-xl bg-indigo-600 hover:bg-indigo-700 text-white text-xs sm:text-sm font-extrabold shadow-sm transition-all cursor-pointer"
+                  className="w-full sm:w-auto flex items-center justify-center gap-2 px-5 py-2.5 rounded-xl bg-indigo-600 hover:bg-indigo-700 text-white text-xs sm:text-sm font-extrabold shadow-sm transition-all cursor-pointer"
                 >
                   {copiedKey ? <Check className="h-4 w-4 text-amber-300" /> : <Copy className="h-4 w-4" />}
-                  <span>{copiedKey ? 'Key Copied!' : `Copy Key (${uploadSuccessData.transfer_key})`}</span>
+                  <span>{copiedKey ? 'Key Copied!' : `Copy 3-Digit Key (${uploadSuccessData.transfer_key})`}</span>
                 </button>
 
                 <button
+                  type="button"
                   onClick={() => {
-                    const directUrl = `${window.location.origin}/transfer?key=${uploadSuccessData.transfer_key}`;
-                    copyToClipboard(directUrl, 'link');
+                    const directUrl = getTransferDirectDownloadUrl(uploadSuccessData.transfer_key);
+                    copyToClipboard(directUrl, 'direct');
                   }}
-                  className="flex items-center gap-2 px-5 py-2.5 rounded-xl bg-slate-100 hover:bg-slate-200 text-slate-800 text-xs sm:text-sm font-bold border border-slate-300 shadow-2xs transition-all cursor-pointer"
+                  className="w-full sm:w-auto flex items-center justify-center gap-2 px-5 py-2.5 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white text-xs sm:text-sm font-extrabold shadow-sm transition-all cursor-pointer"
+                  title="Direct URL that automatically downloads the file in browser"
                 >
-                  {copiedLink ? <Check className="h-4 w-4 text-emerald-600" /> : <Share2 className="h-4 w-4" />}
-                  <span>{copiedLink ? 'Direct Link Copied!' : 'Copy Direct Download Link'}</span>
+                  {copiedDirectLink ? <Check className="h-4 w-4 text-white" /> : <Download className="h-4 w-4" />}
+                  <span>{copiedDirectLink ? 'Direct Link Copied!' : 'Copy Direct Download Link'}</span>
+                </button>
+
+                <button
+                  type="button"
+                  onClick={() => {
+                    const portalUrl = getTransferPortalUrl(uploadSuccessData.transfer_key);
+                    copyToClipboard(portalUrl, 'portal');
+                  }}
+                  className="w-full sm:w-auto flex items-center justify-center gap-2 px-5 py-2.5 rounded-xl bg-slate-100 hover:bg-slate-200 text-slate-800 text-xs sm:text-sm font-bold border border-slate-300 shadow-2xs transition-all cursor-pointer"
+                  title="Web link to open the portal with key pre-filled"
+                >
+                  {copiedPortalLink ? <Check className="h-4 w-4 text-indigo-600" /> : <Share2 className="h-4 w-4" />}
+                  <span>{copiedPortalLink ? 'Portal Link Copied!' : 'Copy Web Portal Link'}</span>
                 </button>
               </div>
 
@@ -778,23 +800,34 @@ export default function FileTransferView() {
                 </div>
 
                 {/* Download CTA */}
-                <div className="pt-2">
-                  <button
-                    onClick={() => handleDownloadFile(receiverFile.transfer_key)}
-                    disabled={isDownloading}
-                    className="w-full py-3.5 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white font-extrabold text-sm flex items-center justify-center gap-2 shadow-md hover:shadow-lg transition-all cursor-pointer"
+                <div className="pt-2 flex flex-col sm:flex-row gap-3">
+                  <a
+                    href={getTransferDownloadUrl(receiverFile.transfer_key)}
+                    download={receiverFile.file_name}
+                    onClick={() => {
+                      setIsDownloading(true);
+                      setTimeout(() => {
+                        setIsDownloading(false);
+                        fetchActiveTransfers();
+                      }, 2000);
+                    }}
+                    className="flex-1 py-3.5 px-4 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white font-extrabold text-sm flex items-center justify-center gap-2 shadow-md hover:shadow-lg transition-all cursor-pointer text-center"
                   >
-                    {isDownloading ? (
-                      <>
-                        <RefreshCw className="h-4 w-4 animate-spin" />
-                        <span>Starting Download...</span>
-                      </>
-                    ) : (
-                      <>
-                        <Download className="h-4 w-4" />
-                        <span>Download File Now ({receiverFile.file_size_formatted})</span>
-                      </>
-                    )}
+                    <Download className="h-5 w-5" />
+                    <span>Download File Now ({receiverFile.file_size_formatted})</span>
+                  </a>
+
+                  <button
+                    type="button"
+                    onClick={() => {
+                      const directUrl = getTransferDirectDownloadUrl(receiverFile.transfer_key);
+                      copyToClipboard(directUrl, 'direct');
+                    }}
+                    className="px-4 py-3.5 rounded-xl bg-slate-100 hover:bg-slate-200 text-slate-700 text-xs font-bold border border-slate-300 flex items-center justify-center gap-2 transition-all cursor-pointer"
+                    title="Copy direct download link that triggers file download in browser"
+                  >
+                    {copiedDirectLink ? <Check className="h-4 w-4 text-emerald-600" /> : <Copy className="h-4 w-4" />}
+                    <span>{copiedDirectLink ? 'Link Copied!' : 'Copy Direct Download URL'}</span>
                   </button>
                 </div>
               </div>
@@ -922,12 +955,24 @@ export default function FileTransferView() {
                           <ArrowRight className="h-3.5 w-3.5" />
                         </button>
 
-                        <button
-                          onClick={() => handleDownloadFile(item.transfer_key)}
-                          title="Download File"
+                        <a
+                          href={getTransferDownloadUrl(item.transfer_key)}
+                          download={item.file_name}
+                          onClick={() => {
+                            setTimeout(fetchActiveTransfers, 2000);
+                          }}
+                          title="Download File directly"
                           className="p-1 rounded bg-emerald-50 hover:bg-emerald-100 text-emerald-700 transition-colors"
                         >
                           <Download className="h-3.5 w-3.5" />
+                        </a>
+
+                        <button
+                          onClick={() => copyToClipboard(getTransferDirectDownloadUrl(item.transfer_key), 'direct')}
+                          title="Copy Direct Download URL"
+                          className="p-1 rounded bg-slate-100 hover:bg-slate-200 text-slate-700 transition-colors"
+                        >
+                          <Share2 className="h-3.5 w-3.5" />
                         </button>
 
                         {(user?.role === 'Super Admin' || user?.role === 'Office Admin' || user?.role === 'IMS Admin') && (

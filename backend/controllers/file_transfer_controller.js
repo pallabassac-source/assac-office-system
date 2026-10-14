@@ -103,7 +103,7 @@ class FileTransferController {
       if (!fullPath || !fs.existsSync(fullPath)) {
         return res.status(404).json({
           success: false,
-          error: `The requested file was not found on the 1.0 TB storage partition. It may have already been purged.`
+          error: `The requested file was not found on the storage partition. It may have already been purged.`
         });
       }
 
@@ -113,10 +113,17 @@ class FileTransferController {
       console.log(`[FileTransfer] File "${transfer.file_name}" downloaded via key "${key}". Total downloads: ${transfer.download_count + 1}`);
 
       // Stream file with appropriate filename
-      res.download(fullPath, transfer.file_name);
+      res.download(fullPath, transfer.file_name, (err) => {
+        if (err && !res.headersSent) {
+          console.error('[FileTransfer] res.download stream error:', err);
+          res.status(500).json({ success: false, error: 'Failed to stream file download.' });
+        }
+      });
     } catch (error) {
       console.error('[FileTransferController] downloadFile error:', error);
-      res.status(500).json({ success: false, error: error.message });
+      if (!res.headersSent) {
+        res.status(500).json({ success: false, error: error.message });
+      }
     }
   }
 
