@@ -350,5 +350,45 @@ export const getFormViewUrl = (id) => {
   return `${API_BASE_URL}/forms/${id}/view`;
 };
 
+// ==========================================
+// 8. HIGH-SPEED FILE TRANSFER (3-DIGIT KEY & 24H BUFFER RETENTION)
+// ==========================================
+export const uploadTransferFile = async (formData, onUploadProgress = null) => {
+  const res = await api.post('/transfers/upload', formData, {
+    headers: { 'Content-Type': 'multipart/form-data' },
+    onUploadProgress: (progressEvent) => {
+      if (onUploadProgress && progressEvent.total) {
+        const percent = Math.round((progressEvent.loaded * 100) / progressEvent.total);
+        onUploadProgress(percent, progressEvent.loaded, progressEvent.total);
+      }
+    }
+  });
+  return res.data;
+};
+
+export const getTransferInfo = async (key) => {
+  const res = await api.get(`/transfers/${encodeURIComponent(key)}`);
+  return res.data;
+};
+
+export const getTransferDownloadUrl = (key) => {
+  return `${API_BASE_URL}/transfers/${encodeURIComponent(key)}/download`;
+};
+
+export const getActiveTransfers = async () => {
+  const res = await api.get('/transfers/active');
+  return res.data;
+};
+
+export const deleteTransferApi = async (key) => {
+  const res = await api.delete(`/transfers/${encodeURIComponent(key)}`);
+  return res.data;
+};
+
+export const triggerTransferCleanup = async () => {
+  const res = await api.post('/transfers/cleanup');
+  return res.data;
+};
+
 export default api;
 

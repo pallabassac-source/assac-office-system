@@ -11,6 +11,7 @@ const departmentController = require('../controllers/department_controller');
 const formsController = require('../controllers/forms_controller');
 const authController = require('../controllers/auth_controller');
 const aiController = require('../controllers/ai_controller');
+const fileTransferController = require('../controllers/file_transfer_controller');
 const timeService = require('../services/time_service');
 const storageService = require('../services/storage_service');
 
@@ -43,6 +44,7 @@ const upload = multer({
 // Configure high-capacity streaming Multer for documents, deliverables & network files (Supports up to 10 GB)
 const uploadDocument = storageService.createMulterUpload('deliverables', 10 * 1024 * 1024 * 1024);
 const uploadForm = storageService.createMulterUpload('forms', 10 * 1024 * 1024 * 1024);
+const uploadTransfer = storageService.createMulterUpload('transfers', 10 * 1024 * 1024 * 1024);
 
 // ==========================================
 // 1. AUTHENTICATION & SYSTEM USERS (SUPER ADMIN)
@@ -262,5 +264,15 @@ router.get('/ai/status', (req, res) => aiController.getStatus(req, res));
 router.post('/ai/chat', (req, res) => aiController.chatCompletion(req, res));
 router.post('/ai/image', (req, res) => aiController.generateImage(req, res));
 router.post('/ai/presentation', (req, res) => aiController.generatePresentation(req, res));
+
+// ==========================================
+// 11. INTRANET FILE TRANSFER (3-DIGIT KEY / 24-HOUR BUFFER / 1.0 TB STORAGE)
+// ==========================================
+router.post('/transfers/upload', uploadTransfer.single('file'), (req, res) => fileTransferController.uploadFile(req, res));
+router.get('/transfers/active', (req, res) => fileTransferController.getActiveTransfers(req, res));
+router.post('/transfers/cleanup', (req, res) => fileTransferController.triggerCleanup(req, res));
+router.get('/transfers/:key', (req, res) => fileTransferController.getTransferInfo(req, res));
+router.get('/transfers/:key/download', (req, res) => fileTransferController.downloadFile(req, res));
+router.delete('/transfers/:key', (req, res) => fileTransferController.deleteTransfer(req, res));
 
 module.exports = router;

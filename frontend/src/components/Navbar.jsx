@@ -24,7 +24,8 @@ import {
   BarChart3,
   Download,
   ShieldAlert,
-  ChevronRight
+  ChevronRight,
+  ArrowLeftRight
 } from 'lucide-react';
 import { getAvailablePeriods } from '../services/api';
 import { OFFICE_ADMIN_NAV_GROUPS, IMS_ADMIN_NAV_GROUPS } from '../config/navigationGroups';
@@ -333,6 +334,22 @@ export default function Navbar({
               <span>AI Utility Suite</span>
             </button>
           )}
+
+          {/* High-Capacity LAN File Transfer (3-Digit Key & 24h Buffer) */}
+          <button
+            onClick={() => handlePortalClick('/transfer')}
+            className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg font-extrabold uppercase text-[11px] tracking-wider transition-all whitespace-nowrap cursor-pointer ${
+              currentPath === '/transfer' || currentPath === '/file-transfer'
+                ? 'bg-indigo-600 text-white shadow-xs font-bold'
+                : 'text-slate-600 hover:text-indigo-700 hover:bg-white border border-transparent hover:border-slate-200'
+            }`}
+          >
+            <ArrowLeftRight className="h-3.5 w-3.5 text-indigo-600" />
+            <span>File Transfer</span>
+            <span className="px-1.5 py-0.2 rounded text-[9px] font-mono font-black bg-amber-100 text-amber-800 border border-amber-300">
+              24H BUFFER
+            </span>
+          </button>
         </div>
       </div>
 

@@ -1,13 +1,8 @@
 # Production Dockerfile for Backend API Service
-FROM node:20-bookworm-slim
+FROM node:20-alpine
 
 # Install system dependencies required for native Node module builds (sqlite3) and timezone data
-RUN apt-get update && apt-get install -y --no-install-recommends \
-    python3 \
-    make \
-    g++ \
-    tzdata \
-    && rm -rf /var/lib/apt/lists/*
+RUN apk add --no-cache python3 make g++ tzdata
 
 WORKDIR /app
 

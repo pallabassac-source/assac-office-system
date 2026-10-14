@@ -14,6 +14,7 @@ import InternPortalView from './views/InternPortalView';
 import FormsDownloadsView from './views/FormsDownloadsView';
 import SuperAdminView from './views/SuperAdminView';
 import AiSuiteView from './views/AiSuiteView';
+import FileTransferView from './views/FileTransferView';
 
 function RootRedirect() {
   const { user } = useAuth();
@@ -166,6 +167,16 @@ function AppContent() {
           <Route 
             path="/superadmin" 
             element={<SuperAdminRoute refreshKey={refreshKey} />} 
+          />
+
+          {/* 9. High-Speed LAN File Transfer Desk (3-Digit Key & 24h Buffer) */}
+          <Route 
+            path="/transfer" 
+            element={<FileTransferView key={`transfer-${refreshKey}`} />} 
+          />
+          <Route 
+            path="/file-transfer" 
+            element={<FileTransferView key={`file-transfer-${refreshKey}`} />} 
           />
 
           {/* Fallback unknown paths */}

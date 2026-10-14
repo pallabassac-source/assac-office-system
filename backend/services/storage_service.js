@@ -34,7 +34,7 @@ class StorageService {
   }
 
   ensureDirectories() {
-    const subdirs = ['deliverables', 'forms', 'general', 'attendance', 'temp'];
+    const subdirs = ['deliverables', 'forms', 'general', 'attendance', 'temp', 'transfers'];
     if (!fs.existsSync(this.rootDir)) {
       try {
         fs.mkdirSync(this.rootDir, { recursive: true });
@@ -60,7 +60,7 @@ class StorageService {
   }
 
   getSubdir(category = 'deliverables') {
-    const validSubs = ['deliverables', 'forms', 'general', 'attendance', 'temp'];
+    const validSubs = ['deliverables', 'forms', 'general', 'attendance', 'temp', 'transfers'];
     const sub = validSubs.includes(category) ? category : 'deliverables';
     const targetPath = path.join(this.rootDir, sub);
     if (!fs.existsSync(targetPath)) {

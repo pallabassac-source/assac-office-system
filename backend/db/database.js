@@ -295,9 +295,30 @@ async function initDb() {
       updated_date TEXT,
       created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
     );
+
+    CREATE TABLE IF NOT EXISTS file_transfers (
+      id INTEGER PRIMARY KEY ${usePostgres ? 'GENERATED ALWAYS AS IDENTITY' : 'AUTOINCREMENT'},
+      transfer_key TEXT UNIQUE NOT NULL,
+      file_name TEXT NOT NULL,
+      stored_filename TEXT NOT NULL,
+      file_path TEXT NOT NULL,
+      file_size INTEGER DEFAULT 0,
+      mime_type TEXT,
+      sender_name TEXT,
+      sender_id INTEGER,
+      notes TEXT,
+      download_count INTEGER DEFAULT 0,
+      created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+      expires_at TIMESTAMP NOT NULL
+    );
   `);
 
   // Safe schema migrations for existing DB
+  await safeAddColumn('file_transfers', 'sender_name TEXT');
+  await safeAddColumn('file_transfers', 'sender_id INTEGER');
+  await safeAddColumn('file_transfers', 'notes TEXT');
+  await safeAddColumn('file_transfers', 'download_count INTEGER DEFAULT 0');
+  await safeAddColumn('file_transfers', 'expires_at TIMESTAMP');
   await safeAddColumn('interns', 'project_title TEXT');
   await safeAddColumn('interns', 'joining_date TEXT');
   await safeAddColumn('interns', 'duration_months INTEGER DEFAULT 6');

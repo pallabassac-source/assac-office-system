@@ -12,6 +12,7 @@ const excelParser = require('./services/excel_parser');
 const attendanceRepository = require('./repositories/attendance_repository');
 const timeService = require('./services/time_service');
 const storageService = require('./services/storage_service');
+const fileTransferRepository = require('./repositories/file_transfer_repository');
 
 const app = express();
 const PORT = process.env.PORT || 5000;
@@ -129,6 +130,25 @@ const server = app.listen(PORT, HOST, async () => {
   console.log(`=================================================`);
   
   await autoSeedDefaultFile();
+
+  // Initial 24-hour buffer file cleanup & start recurring 15-minute background auto-deletion worker
+  try {
+    const purged = await fileTransferRepository.cleanupExpiredTransfers();
+    if (purged > 0) {
+      console.log(`🧹 [FileTransfer] Boot cleanup purged ${purged} expired transfer file(s)`);
+    }
+  } catch (cleanErr) {
+    console.warn('[FileTransfer] Boot cleanup warning:', cleanErr.message);
+  }
+
+  // Auto-delete expired files every 15 minutes
+  setInterval(async () => {
+    try {
+      await fileTransferRepository.cleanupExpiredTransfers();
+    } catch (e) {
+      console.warn('[FileTransfer] Background auto-purge warning:', e.message);
+    }
+  }, 15 * 60 * 1000);
 });
 
 // Configure Node HTTP server to allow massive 10GB file transfers over LAN
