@@ -42,9 +42,9 @@ const upload = multer({
 });
 
 // Configure high-capacity streaming Multer for documents, deliverables & network files (Supports up to 10 GB)
-const uploadDocument = storageService.createMulterUpload('deliverables', 10 * 1024 * 1024 * 1024);
-const uploadForm = storageService.createMulterUpload('forms', 10 * 1024 * 1024 * 1024);
-const uploadTransfer = storageService.createMulterUpload('transfers', 10 * 1024 * 1024 * 1024);
+const uploadDocument = storageService.createMulterUpload('deliverables', 15 * 1024 * 1024 * 1024);
+const uploadForm = storageService.createMulterUpload('forms', 15 * 1024 * 1024 * 1024);
+const uploadTransfer = storageService.createMulterUpload('transfers', 15 * 1024 * 1024 * 1024);
 
 // ==========================================
 // 1. AUTHENTICATION & SYSTEM USERS (SUPER ADMIN)

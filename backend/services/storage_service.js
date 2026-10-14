@@ -198,7 +198,7 @@ class StorageService {
   /**
    * Create configured Multer instance (Supports up to 10 GB for high-capacity transfers)
    */
-  createMulterUpload(subdir = 'deliverables', maxSizeBytes = 10 * 1024 * 1024 * 1024) {
+  createMulterUpload(subdir = 'deliverables', maxSizeBytes = 15 * 1024 * 1024 * 1024) {
     const storage = multer.diskStorage({
       destination: (req, file, cb) => {
         const dest = this.getSubdir(subdir);
@@ -214,7 +214,7 @@ class StorageService {
 
     return multer({
       storage,
-      limits: { fileSize: maxSizeBytes } // 10 GB limit for large LAN transfers
+      limits: { fileSize: maxSizeBytes } // Supports 10GB+ transfers
     });
   }
 }

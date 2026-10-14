@@ -356,6 +356,9 @@ export const getFormViewUrl = (id) => {
 export const uploadTransferFile = async (formData, onUploadProgress = null) => {
   const res = await api.post('/transfers/upload', formData, {
     headers: { 'Content-Type': 'multipart/form-data' },
+    timeout: 0,
+    maxBodyLength: Infinity,
+    maxContentLength: Infinity,
     onUploadProgress: (progressEvent) => {
       if (onUploadProgress && progressEvent.total) {
         const percent = Math.round((progressEvent.loaded * 100) / progressEvent.total);
