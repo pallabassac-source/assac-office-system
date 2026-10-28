@@ -11,6 +11,17 @@ const api = axios.create({
   }
 });
 
+// Attach Authorization bearer token from session storage if present
+api.interceptors.request.use(config => {
+  try {
+    const token = localStorage.getItem('assac_jwt_token');
+    if (token) {
+      config.headers['Authorization'] = `Bearer ${token}`;
+    }
+  } catch (e) {}
+  return config;
+}, error => Promise.reject(error));
+
 // ==========================================
 const getCurrentMonth = () => new Date().getMonth() + 1;
 const getCurrentYear = () => new Date().getFullYear();

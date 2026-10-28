@@ -23,19 +23,19 @@ function RootRedirect() {
     return <Navigate to="/hub" replace />;
   }
 
-  if (user.role === 'Super Admin') {
+  if (user.role === 'Super Admin' || user.permissions?.super_admin === true) {
     return <Navigate to="/superadmin" replace />;
   }
-  if (user.role === 'Office Admin' || user.role === 'Admin') {
+  if (user.role === 'Office Admin' || user.role === 'Admin' || user.permissions?.biometric_attendance === true || user.permissions?.excel_upload === true || user.permissions?.employee_management === true) {
     return <Navigate to="/office-admin" replace />;
   }
-  if (user.role === 'IMS Admin' || user.role === 'IMS Officer') {
+  if (user.role === 'IMS Admin' || user.role === 'IMS Officer' || user.permissions?.ims_access === true || user.permissions?.intern_onboarding === true) {
     return <Navigate to="/ims-admin" replace />;
   }
-  if (user.role === 'Employee') {
+  if (user.role === 'Employee' || user.permissions?.employee_portal === true) {
     return <Navigate to="/employee-portal" replace />;
   }
-  if (user.role === 'Intern') {
+  if (user.role === 'Intern' || user.permissions?.intern_portal === true) {
     return <Navigate to="/intern-portal" replace />;
   }
 
@@ -46,7 +46,7 @@ function SuperAdminRoute({ refreshKey }) {
   const { user } = useAuth();
   const navigate = useNavigate();
 
-  if (user && user.isAuthenticated && user.role === 'Super Admin') {
+  if (user && user.isAuthenticated && (user.role === 'Super Admin' || user.permissions?.super_admin === true)) {
     return <SuperAdminView key={`superadmin-${refreshKey}`} />;
   }
 

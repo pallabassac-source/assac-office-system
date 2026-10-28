@@ -10,19 +10,15 @@ export default function AuditLogsView() {
   const [loading, setLoading] = useState(true);
 
   const isSuperAdmin = user?.role === 'Super Admin' || user?.permissions?.super_admin === true;
-  const isAuthorized = user?.isAuthenticated && (
-    isSuperAdmin ||
-    ((user.role === 'Office Admin' || user.role === 'Admin') && user?.permissions?.biometric_attendance === true) ||
-    ((user.role === 'IMS Admin' || user.role === 'IMS Officer') && user?.permissions?.ims_access === true)
-  );
+  const isAuthorized = user?.isAuthenticated && isSuperAdmin;
 
   if (!isAuthorized) {
     return (
       <RestrictedAccessView 
-        moduleName="System Activity Audit Logs"
+        moduleName="System Security Activity Audit Logs"
         permissionKey="super_admin"
-        description="Access to security audit trails and system activity logs is restricted to authorized administrative officers."
-        requiredRole="Office Admin"
+        description="Access to security audit trails and system activity logs is strictly restricted to Super Admin."
+        requiredRole="Super Admin"
       />
     );
   }

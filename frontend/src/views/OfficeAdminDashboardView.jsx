@@ -58,16 +58,20 @@ export default function OfficeAdminDashboardView({
   // Strict RBAC & Granular Permissions Gating
   const isSuperAdmin = user?.role === 'Super Admin' || user?.permissions?.super_admin === true;
   const hasBiometricAccess = isSuperAdmin || user?.permissions?.biometric_attendance === true;
+  const hasExcelUploadAccess = isSuperAdmin || user?.permissions?.excel_upload === true || (hasBiometricAccess && user?.permissions?.excel_upload !== false);
   const hasInternAccess = isSuperAdmin || user?.permissions?.intern_onboarding === true;
   const hasFormsAccess = isSuperAdmin || user?.permissions?.forms_downloads === true;
+  const hasEmployeeAccess = isSuperAdmin || user?.permissions?.employee_management === true || user?.role === 'Office Admin' || user?.role === 'Admin' || hasBiometricAccess;
   const hasAuditAccess = isSuperAdmin;
 
   // User must possess at least one granted permission to enter Office Admin workspace
   const isAuthorized = user?.isAuthenticated && (
     isSuperAdmin ||
     hasBiometricAccess ||
+    hasExcelUploadAccess ||
     hasInternAccess ||
     hasFormsAccess ||
+    hasEmployeeAccess ||
     hasAuditAccess
   );
 
@@ -284,7 +288,7 @@ export default function OfficeAdminDashboardView({
         )}
 
         {activeTab === 'upload' && (
-          hasBiometricAccess ? (
+          hasExcelUploadAccess ? (
             <ExcelUploadView
               onIngestSuccess={() => {
                 if (onRefresh) onRefresh();
@@ -294,7 +298,7 @@ export default function OfficeAdminDashboardView({
           ) : (
             <RestrictedAccessView
               moduleName="Monthly Excel Ingestion Hub"
-              permissionKey="biometric_attendance"
+              permissionKey="excel_upload"
               description="Access to monthly biometric workbook ingestion and period processing has been disabled for your account by Super Admin."
               requiredRole="Office Admin"
             />
@@ -334,12 +338,12 @@ export default function OfficeAdminDashboardView({
         )}
 
         {activeTab === 'employees' && (
-          hasBiometricAccess ? (
+          hasEmployeeAccess ? (
             <EmployeeManagementView />
           ) : (
             <RestrictedAccessView
               moduleName="Staff Directory & HR Provisioning"
-              permissionKey="biometric_attendance"
+              permissionKey="employee_management"
               description="Access to staff records, employee creation, department assignment, and credential resets has been disabled for your account by Super Admin."
               requiredRole="Office Admin"
             />

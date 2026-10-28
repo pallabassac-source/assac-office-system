@@ -1,5 +1,149 @@
 const db = require('../db/database');
 
+const ROLE_DEFAULT_PERMISSIONS = {
+  'Super Admin': {
+    biometric_attendance: true,
+    excel_upload: true,
+    employee_management: true,
+    ims_access: true,
+    intern_onboarding: true,
+    forms_downloads: true,
+    ai_suite: true,
+    file_transfer: true,
+    employee_portal: true,
+    intern_portal: true,
+    super_admin: true
+  },
+  'Admin': {
+    biometric_attendance: true,
+    excel_upload: true,
+    employee_management: true,
+    forms_downloads: true,
+    intern_onboarding: true,
+    ai_suite: true,
+    file_transfer: true,
+    employee_portal: true,
+    ims_access: false,
+    intern_portal: false,
+    super_admin: false
+  },
+  'Office Admin': {
+    biometric_attendance: true,
+    excel_upload: true,
+    employee_management: true,
+    forms_downloads: true,
+    intern_onboarding: true,
+    ai_suite: true,
+    file_transfer: true,
+    employee_portal: true,
+    ims_access: false,
+    intern_portal: false,
+    super_admin: false
+  },
+  'IMS Admin': {
+    ims_access: true,
+    intern_onboarding: true,
+    forms_downloads: true,
+    ai_suite: true,
+    file_transfer: true,
+    intern_portal: true,
+    employee_portal: false,
+    biometric_attendance: false,
+    excel_upload: false,
+    employee_management: false,
+    super_admin: false
+  },
+  'IMS Officer': {
+    ims_access: true,
+    intern_onboarding: true,
+    forms_downloads: true,
+    ai_suite: true,
+    file_transfer: true,
+    intern_portal: true,
+    employee_portal: false,
+    biometric_attendance: false,
+    excel_upload: false,
+    employee_management: false,
+    super_admin: false
+  },
+  'Administrative Officer': {
+    intern_onboarding: true,
+    employee_management: true,
+    forms_downloads: true,
+    ai_suite: true,
+    file_transfer: true,
+    employee_portal: true,
+    biometric_attendance: false,
+    excel_upload: false,
+    ims_access: false,
+    intern_portal: false,
+    super_admin: false
+  },
+  'AO': {
+    intern_onboarding: true,
+    employee_management: true,
+    forms_downloads: true,
+    ai_suite: true,
+    file_transfer: true,
+    employee_portal: true,
+    biometric_attendance: false,
+    excel_upload: false,
+    ims_access: false,
+    intern_portal: false,
+    super_admin: false
+  },
+  'Employee': {
+    employee_portal: true,
+    forms_downloads: true,
+    ai_suite: true,
+    file_transfer: true,
+    biometric_attendance: false,
+    excel_upload: false,
+    employee_management: false,
+    intern_onboarding: false,
+    ims_access: false,
+    intern_portal: false,
+    super_admin: false
+  },
+  'Intern': {
+    intern_portal: true,
+    ims_access: true,
+    forms_downloads: true,
+    ai_suite: true,
+    file_transfer: true,
+    biometric_attendance: false,
+    excel_upload: false,
+    employee_management: false,
+    employee_portal: false,
+    intern_onboarding: false,
+    super_admin: false
+  }
+};
+
+function resolveUserPermissions(roleName, rawPermissions) {
+  let stored = {};
+  if (typeof rawPermissions === 'string') {
+    try {
+      stored = JSON.parse(rawPermissions);
+    } catch (e) {}
+  } else if (rawPermissions && typeof rawPermissions === 'object') {
+    stored = rawPermissions;
+  }
+
+  const roleDefaults = ROLE_DEFAULT_PERMISSIONS[roleName] || ROLE_DEFAULT_PERMISSIONS['Admin'] || {};
+
+  // If stored permissions is empty object or null, fallback to roleDefaults
+  if (!stored || Object.keys(stored).length === 0) {
+    return { ...roleDefaults };
+  }
+
+  // Merge: roleDefaults as base, stored as explicit override
+  return {
+    ...roleDefaults,
+    ...stored
+  };
+}
+
 class AuthRepository {
   /**
    * Authenticate user with username/email and password
@@ -19,17 +163,56 @@ class AuthRepository {
 
     if (!user) {
       // Fallback for default master accounts if DB was recently initialized
-      if ((key === 'superadmin' || key === 'admin' || key === 'ims' || key === 'employee' || key === 'intern') && 
-          (password === 'super123' || password === 'admin123' || password === 'ims123' || password === 'emp123' || password === 'intern123')) {
+      const fallbackMap = {
+        superadmin: {
+          id: 99901,
+          fullName: 'Super Admin Operator',
+          role: 'Super Admin',
+          pass: 'super123',
+          permissions: resolveUserPermissions('Super Admin', null)
+        },
+        admin: {
+          id: 99902,
+          fullName: 'Assam State Office Admin',
+          role: 'Office Admin',
+          pass: 'admin123',
+          permissions: resolveUserPermissions('Office Admin', null)
+        },
+        ims: {
+          id: 99903,
+          fullName: 'IMS Governance Officer',
+          role: 'IMS Admin',
+          pass: 'ims123',
+          permissions: resolveUserPermissions('IMS Admin', null)
+        },
+        employee: {
+          id: 99904,
+          fullName: 'Staff Employee',
+          role: 'Employee',
+          pass: 'emp123',
+          permissions: resolveUserPermissions('Employee', null)
+        },
+        intern: {
+          id: 99905,
+          fullName: 'Research Scholar Intern',
+          role: 'Intern',
+          pass: 'intern123',
+          permissions: resolveUserPermissions('Intern', null)
+        }
+      };
+
+      const fallback = fallbackMap[key];
+      if (fallback && (password === fallback.pass || password === 'super123' || password === 'admin123')) {
         return {
           success: true,
           user: {
-            id: 1,
+            id: fallback.id,
             username: key,
-            fullName: key.toUpperCase(),
+            fullName: fallback.fullName,
             email: `${key}@assac.internal`,
-            role: key === 'superadmin' ? 'Super Admin' : key === 'admin' ? 'Office Admin' : key === 'ims' ? 'IMS Admin' : key === 'employee' ? 'Employee' : 'Intern',
-            permissions: { biometric_attendance: true, forms_downloads: true, intern_onboarding: true, ims_access: true, super_admin: key === 'superadmin' }
+            role: fallback.role,
+            status: 'Active',
+            permissions: fallback.permissions
           }
         };
       }
@@ -45,10 +228,7 @@ class AuthRepository {
       return { success: false, error: 'Invalid username or password' };
     }
 
-    let parsedPerms = {};
-    try {
-      parsedPerms = user.module_permissions ? JSON.parse(user.module_permissions) : {};
-    } catch (e) {}
+    const resolvedPermissions = resolveUserPermissions(user.role_name || 'Admin', user.module_permissions);
 
     return {
       success: true,
@@ -63,7 +243,7 @@ class AuthRepository {
         status: user.status || 'Active',
         intern_id: user.intern_id || null,
         employee_id: user.employee_id || null,
-        permissions: parsedPerms
+        permissions: resolvedPermissions
       }
     };
   }
@@ -82,10 +262,7 @@ class AuthRepository {
     `).all();
 
     return rows.map(r => {
-      let perms = {};
-      try {
-        perms = r.module_permissions ? JSON.parse(r.module_permissions) : {};
-      } catch (e) {}
+      const perms = resolveUserPermissions(r.role || 'Admin', r.module_permissions);
 
       return {
         id: r.id,
@@ -108,26 +285,34 @@ class AuthRepository {
    * Create or update system user
    */
   async saveUser(data, currentUserId = 1) {
-    const username = data.username.toLowerCase().trim();
+    const username = data.username ? data.username.toLowerCase().trim() : '';
     const email = data.email ? data.email.trim() : `${username}@assac.internal`;
-    const password = data.password ? data.password.trim() : 'admin123';
     const fullName = data.fullName || data.name || username;
     const designation = data.designation || 'Staff Officer';
     const roleName = data.role || 'Admin';
     const status = data.status || 'Active';
-    const permissionsJson = JSON.stringify(data.permissions || {});
+    const resolvedPermissions = resolveUserPermissions(roleName, data.permissions);
+    const permissionsJson = JSON.stringify(resolvedPermissions);
 
-    const existing = await db.prepare('SELECT id FROM users WHERE LOWER(username) = ? OR id = ?').get(username, data.id || -1);
+    // Try finding by id (numeric) or username
+    let existing = null;
+    if (data.id && !isNaN(Number(data.id))) {
+      existing = await db.prepare('SELECT id, status, password_hash FROM users WHERE id = ?').get(Number(data.id));
+    }
+    if (!existing && username) {
+      existing = await db.prepare('SELECT id, status, password_hash FROM users WHERE LOWER(username) = ?').get(username);
+    }
 
     if (existing) {
       let updateSql = `
         UPDATE users SET
-          email = ?, full_name = ?, designation = ?, role_name = ?,
+          username = ?, email = ?, full_name = ?, designation = ?, role_name = ?,
           module_permissions = ?, status = ?
       `;
-      const params = [email, fullName, designation, roleName, permissionsJson, status];
+      const params = [username, email, fullName, designation, roleName, permissionsJson, status];
 
-      if (data.password && data.password.trim()) {
+      // Only update password if an explicit new password was provided
+      if (data.password && typeof data.password === 'string' && data.password.trim() && data.password.trim() !== '__KEEP_EXISTING__') {
         updateSql += ', password_hash = ? ';
         params.push(data.password.trim());
       }
@@ -137,8 +322,20 @@ class AuthRepository {
 
       await db.prepare(updateSql).run(...params);
       await db.prepare(`INSERT INTO audit_logs (user_id, action, details) VALUES (?, 'UPDATE_USER', ?)`).run(currentUserId, `Updated user @${username}`);
-      return { id: existing.id, ...data };
+      return { 
+        ...data,
+        id: existing.id, 
+        username, 
+        email, 
+        fullName, 
+        name: fullName, 
+        designation, 
+        role: roleName, 
+        status, 
+        permissions: resolvedPermissions 
+      };
     } else {
+      const password = (data.password && data.password.trim()) ? data.password.trim() : 'admin123';
       const insertSql = `
         INSERT INTO users (
           username, email, password_hash, full_name, designation,
@@ -146,8 +343,20 @@ class AuthRepository {
         ) VALUES (?, ?, ?, ?, ?, ?, 2, ?, ?)
       `;
       const res = await db.prepare(insertSql).run(username, email, password, fullName, designation, roleName, permissionsJson, status);
+      const newId = res.lastID || (res.rows && res.rows[0] ? res.rows[0].id : null);
       await db.prepare(`INSERT INTO audit_logs (user_id, action, details) VALUES (?, 'CREATE_USER', ?)`).run(currentUserId, `Created user @${username} with role ${roleName}`);
-      return { id: res.lastID, ...data };
+      return { 
+        ...data,
+        id: newId, 
+        username, 
+        email, 
+        fullName, 
+        name: fullName, 
+        designation, 
+        role: roleName, 
+        status, 
+        permissions: resolvedPermissions 
+      };
     }
   }
 
@@ -155,7 +364,13 @@ class AuthRepository {
    * Delete user
    */
   async deleteUser(idOrUsername, currentUserId = 1) {
-    await db.prepare('DELETE FROM users WHERE id = ? OR username = ?').run(idOrUsername, idOrUsername);
+    if (idOrUsername === undefined || idOrUsername === null) return false;
+    const isNum = !isNaN(Number(idOrUsername));
+    if (isNum) {
+      await db.prepare('DELETE FROM users WHERE id = ? OR username = ?').run(Number(idOrUsername), String(idOrUsername));
+    } else {
+      await db.prepare('DELETE FROM users WHERE username = ?').run(String(idOrUsername));
+    }
     await db.prepare(`INSERT INTO audit_logs (user_id, action, details) VALUES (?, 'DELETE_USER', ?)`).run(currentUserId, `Deleted user ${idOrUsername}`);
     return true;
   }

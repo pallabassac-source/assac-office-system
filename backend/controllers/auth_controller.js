@@ -1,5 +1,6 @@
 const authRepository = require('../repositories/auth_repository');
 const emailService = require('../services/email_service');
+const { generateToken } = require('../middleware/auth');
 
 class AuthController {
   async login(req, res) {
@@ -10,9 +11,11 @@ class AuthController {
         return res.status(401).json({ success: false, error: result.error });
       }
 
+      const token = generateToken(result.user);
+
       res.json({
         success: true,
-        token: `assac-jwt-${Date.now()}`,
+        token,
         user: result.user
       });
     } catch (error) {

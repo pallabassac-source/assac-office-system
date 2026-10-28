@@ -14,6 +14,10 @@ const aiController = require('../controllers/ai_controller');
 const fileTransferController = require('../controllers/file_transfer_controller');
 const timeService = require('../services/time_service');
 const storageService = require('../services/storage_service');
+const { parseToken, requireAuth, requireSuperAdmin } = require('../middleware/auth');
+
+// Mount token parser on all API routes to populate req.user
+router.use(parseToken);
 
 // Configure multer file upload for attendance Excel
 const uploadsDir = storageService.getRootDir();

@@ -138,11 +138,11 @@ export default function ExcelUploadView({ onIngestSuccess }) {
       const updatedPayload = {
         ...parsedPayload,
         meta: {
-          ...parsedPayload.meta,
+          ...(parsedPayload.meta || {}),
           month: Number(targetMonth),
           year: Number(targetYear),
-          period_from: parsedPayload.meta.period_from || `01-${String(targetMonth).padStart(2, '0')}-${targetYear}`,
-          period_to: parsedPayload.meta.period_to || `30-${String(targetMonth).padStart(2, '0')}-${targetYear}`
+          period_from: parsedPayload.meta?.period_from || `01-${String(targetMonth).padStart(2, '0')}-${targetYear}`,
+          period_to: parsedPayload.meta?.period_to || `30-${String(targetMonth).padStart(2, '0')}-${targetYear}`
         }
       };
 
@@ -410,7 +410,7 @@ export default function ExcelUploadView({ onIngestSuccess }) {
                 {parsedPayload.total_employees} Employee Records → Destination: {MONTH_NAMES[targetMonth]} {targetYear}
               </h3>
               <p className="text-xs text-slate-500 font-medium mt-0.5">
-                Organization: <strong className="text-slate-700">{parsedPayload.meta.org}</strong> • Period: <span className="font-mono font-bold text-slate-800">{parsedPayload.meta.period_from || `${MONTH_NAMES[targetMonth]} ${targetYear}`}</span> to <span className="font-mono font-bold text-slate-800">{parsedPayload.meta.period_to || `${MONTH_NAMES[targetMonth]} ${targetYear}`}</span>
+                Organization: <strong className="text-slate-700">{parsedPayload.meta?.org || 'Assam State Space Application Centre'}</strong> • Period: <span className="font-mono font-bold text-slate-800">{parsedPayload.meta?.period_from || `${MONTH_NAMES[targetMonth]} ${targetYear}`}</span> to <span className="font-mono font-bold text-slate-800">{parsedPayload.meta?.period_to || `${MONTH_NAMES[targetMonth]} ${targetYear}`}</span>
               </p>
             </div>
 

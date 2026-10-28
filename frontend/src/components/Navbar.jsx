@@ -86,6 +86,51 @@ export default function Navbar({
   const isOfficeAdminRoute = currentPath === '/office-admin';
   const isImsAdminRoute = currentPath === '/ims-admin';
 
+  const isSuperAdmin = user?.role === 'Super Admin' || user?.permissions?.super_admin === true;
+
+  const canAccessOfficeAdminTab = (tabId) => {
+    if (isSuperAdmin) return true;
+    if (tabId === 'dashboard' || tabId === 'records' || tabId === 'analytics' || tabId === 'exports') {
+      return !!user?.permissions?.biometric_attendance;
+    }
+    if (tabId === 'upload') {
+      return !!(user?.permissions?.excel_upload === true || (user?.permissions?.biometric_attendance && user?.permissions?.excel_upload !== false));
+    }
+    if (tabId === 'employees') {
+      return !!(user?.permissions?.employee_management || user?.role === 'Office Admin' || user?.role === 'Admin' || user?.permissions?.biometric_attendance);
+    }
+    if (tabId === 'forms') {
+      return !!user?.permissions?.forms_downloads;
+    }
+    if (tabId === 'interns' || tabId === 'certificates') {
+      return !!user?.permissions?.intern_onboarding;
+    }
+    if (tabId === 'audit') {
+      return isSuperAdmin;
+    }
+    return true;
+  };
+
+  const canAccessImsAdminTab = (tabId) => {
+    if (isSuperAdmin) return true;
+    if (tabId === 'deliverables' || tabId === 'storage') {
+      return !!(user?.permissions?.ims_access || user?.role === 'IMS Admin');
+    }
+    if (tabId === 'directory' || tabId === 'clearance') {
+      return !!(user?.permissions?.ims_access || user?.permissions?.intern_onboarding || user?.role === 'IMS Admin');
+    }
+    if (tabId === 'onboard' || tabId === 'departments' || tabId === 'certificates') {
+      return !!(user?.permissions?.intern_onboarding || user?.role === 'IMS Admin');
+    }
+    if (tabId === 'forms') {
+      return !!user?.permissions?.forms_downloads;
+    }
+    if (tabId === 'audit') {
+      return isSuperAdmin;
+    }
+    return true;
+  };
+
   return (
     <header className="bg-white/95 backdrop-blur-md border-b-2 border-indigo-600 text-slate-900 shadow-xs sticky top-0 z-40">
       
@@ -231,7 +276,7 @@ export default function Navbar({
           </button>
 
           {/* SUPER ADMIN SPECIFIC TAB */}
-          {user.role === 'Super Admin' && (
+          {(user.role === 'Super Admin' || user.permissions?.super_admin === true) && (
             <button
               onClick={() => handlePortalClick('/superadmin')}
               className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg font-extrabold uppercase text-[11px] tracking-wider transition-all whitespace-nowrap cursor-pointer ${
@@ -246,7 +291,7 @@ export default function Navbar({
           )}
 
           {/* OFFICE ADMIN MAIN ROUTE TAB */}
-          {(user.role === 'Super Admin' || user.permissions?.super_admin || ((user.role === 'Office Admin' || user.role === 'Admin') && (user.permissions?.biometric_attendance || user.permissions?.intern_onboarding || user.permissions?.forms_downloads))) && (
+          {(user.role === 'Super Admin' || user.permissions?.super_admin === true || user.permissions?.biometric_attendance === true || user.permissions?.excel_upload === true || user.permissions?.employee_management === true || user.permissions?.intern_onboarding === true || user.permissions?.forms_downloads === true || user.role === 'Office Admin' || user.role === 'Admin') && (
             <button
               onClick={() => handlePortalClick('/office-admin')}
               className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg font-extrabold uppercase text-[11px] tracking-wider transition-all whitespace-nowrap cursor-pointer ${
@@ -261,7 +306,7 @@ export default function Navbar({
           )}
 
           {/* IMS ADMIN SPECIFIC TAB */}
-          {(user.role === 'Super Admin' || user.permissions?.super_admin || ((user.role === 'IMS Admin' || user.role === 'IMS Officer') && (user.permissions?.ims_access || user.permissions?.intern_onboarding)) || (user.permissions?.ims_access)) && (
+          {(user.role === 'Super Admin' || user.permissions?.super_admin === true || user.permissions?.ims_access === true || user.permissions?.intern_onboarding === true || user.role === 'IMS Admin' || user.role === 'IMS Officer') && (
             <button
               onClick={() => handlePortalClick('/ims-admin')}
               className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg font-extrabold uppercase text-[11px] tracking-wider transition-all whitespace-nowrap cursor-pointer ${
@@ -276,7 +321,7 @@ export default function Navbar({
           )}
 
           {/* EMPLOYEE TAB */}
-          {user.role === 'Employee' && (
+          {(user.role === 'Employee' || user.permissions?.employee_portal === true || user.role === 'Admin' || user.role === 'Office Admin' || user.role === 'Super Admin' || user.permissions?.super_admin === true) && (
             <button
               onClick={() => handlePortalClick('/employee-portal')}
               className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg font-extrabold uppercase text-[11px] tracking-wider transition-all whitespace-nowrap cursor-pointer ${
@@ -291,7 +336,7 @@ export default function Navbar({
           )}
 
           {/* INTERN TAB */}
-          {user.role === 'Intern' && (
+          {(user.role === 'Intern' || user.permissions?.intern_portal === true || user.role === 'IMS Admin' || user.role === 'IMS Officer' || user.permissions?.ims_access === true || user.role === 'Super Admin' || user.permissions?.super_admin === true) && (
             <button
               onClick={() => handlePortalClick('/intern-portal')}
               className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg font-extrabold uppercase text-[11px] tracking-wider transition-all whitespace-nowrap cursor-pointer ${
@@ -336,20 +381,22 @@ export default function Navbar({
           )}
 
           {/* High-Capacity LAN File Transfer (3-Digit Key & 24h Buffer) */}
-          <button
-            onClick={() => handlePortalClick('/transfer')}
-            className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg font-extrabold uppercase text-[11px] tracking-wider transition-all whitespace-nowrap cursor-pointer ${
-              currentPath === '/transfer' || currentPath === '/file-transfer'
-                ? 'bg-indigo-600 text-white shadow-xs font-bold'
-                : 'text-slate-600 hover:text-indigo-700 hover:bg-white border border-transparent hover:border-slate-200'
-            }`}
-          >
-            <ArrowLeftRight className="h-3.5 w-3.5 text-indigo-600" />
-            <span>File Transfer</span>
-            <span className="px-1.5 py-0.2 rounded text-[9px] font-mono font-black bg-amber-100 text-amber-800 border border-amber-300">
-              24H BUFFER
-            </span>
-          </button>
+          {(user.role === 'Super Admin' || user.permissions?.super_admin === true || user.permissions?.file_transfer !== false) && (
+            <button
+              onClick={() => handlePortalClick('/transfer')}
+              className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg font-extrabold uppercase text-[11px] tracking-wider transition-all whitespace-nowrap cursor-pointer ${
+                currentPath === '/transfer' || currentPath === '/file-transfer'
+                  ? 'bg-indigo-600 text-white shadow-xs font-bold'
+                  : 'text-slate-600 hover:text-indigo-700 hover:bg-white border border-transparent hover:border-slate-200'
+              }`}
+            >
+              <ArrowLeftRight className="h-3.5 w-3.5 text-indigo-600" />
+              <span>File Transfer</span>
+              <span className="px-1.5 py-0.2 rounded text-[9px] font-mono font-black bg-amber-100 text-amber-800 border border-amber-300">
+                24H BUFFER
+              </span>
+            </button>
+          )}
         </div>
       </div>
 
@@ -363,7 +410,9 @@ export default function Navbar({
             </span>
 
             {OFFICE_ADMIN_NAV_GROUPS.map((group) => {
-              const isGroupActive = group.tabs.some(t => t.id === officeAdminActiveTab);
+              const visibleTabs = group.tabs.filter(t => canAccessOfficeAdminTab(t.id));
+              if (visibleTabs.length === 0) return null;
+              const isGroupActive = visibleTabs.some(t => t.id === officeAdminActiveTab);
               const isBiometrics = group.id === 'biometrics';
 
               return (
@@ -388,7 +437,7 @@ export default function Navbar({
                   </span>
 
                   <div className="flex items-center gap-0.5">
-                    {group.tabs.map((tab) => {
+                    {visibleTabs.map((tab) => {
                       const Icon = tab.icon;
                       const isActive = officeAdminActiveTab === tab.id;
                       return (
@@ -427,7 +476,9 @@ export default function Navbar({
             </span>
 
             {IMS_ADMIN_NAV_GROUPS.map((group) => {
-              const isGroupActive = group.tabs.some(t => t.id === imsAdminActiveTab);
+              const visibleTabs = group.tabs.filter(t => canAccessImsAdminTab(t.id));
+              if (visibleTabs.length === 0) return null;
+              const isGroupActive = visibleTabs.some(t => t.id === imsAdminActiveTab);
               const isVault = group.id === 'vault';
 
               return (
@@ -452,7 +503,7 @@ export default function Navbar({
                   </span>
 
                   <div className="flex items-center gap-0.5">
-                    {group.tabs.map((tab) => {
+                    {visibleTabs.map((tab) => {
                       const Icon = tab.icon;
                       const isActive = imsAdminActiveTab === tab.id;
                       return (

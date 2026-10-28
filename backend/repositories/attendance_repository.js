@@ -6,9 +6,10 @@ class AttendanceRepository {
    * Save parsed attendance payload into database using single transaction
    */
   async ingestParsedData(parsedData, userId = 1) {
+    const { meta = {}, employees = [] } = parsedData || {};
     const serverNow = timeService.getServerDate();
-    const month = meta.month || (serverNow.getMonth() + 1);
-    const year = meta.year || serverNow.getFullYear();
+    const month = Number(meta.month) || (serverNow.getMonth() + 1);
+    const year = Number(meta.year) || serverNow.getFullYear();
     const reportPeriod = meta.period_from && meta.period_to ? `${meta.period_from} to ${meta.period_to}` : `${month}/${year}`;
 
     const insertEmp = db.prepare(`
@@ -464,7 +465,7 @@ class AttendanceRepository {
       }
 
       deletedMonthlyCount = (await db.prepare('DELETE FROM attendance_monthly WHERE month = ? AND year = ?').run(month, year)).changes;
-      
+
       await db.prepare(`
         DELETE FROM employees 
         WHERE id NOT IN (SELECT DISTINCT employee_id FROM attendance_monthly)

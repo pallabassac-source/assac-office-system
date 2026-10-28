@@ -383,28 +383,126 @@ async function initDb() {
     }
   }
 
-  // Seed default system users if empty
-  const userRes = await db.prepare('SELECT COUNT(*) as count FROM users').get();
-  if (!userRes || Number(userRes.count) === 0) {
-    const defaultPermissions = JSON.stringify({
-      biometric_attendance: true,
-      forms_downloads: true,
-      intern_onboarding: true,
-      ims_access: true,
-      excel_upload: true,
-      super_admin: true
-    });
+  // Seed default system users if empty or ensure superadmin exists
+  const superCheck = await db.prepare("SELECT id FROM users WHERE LOWER(username) = 'superadmin'").get();
+  const fullPermissions = JSON.stringify({
+    biometric_attendance: true,
+    excel_upload: true,
+    employee_management: true,
+    ims_access: true,
+    intern_onboarding: true,
+    forms_downloads: true,
+    ai_suite: true,
+    file_transfer: true,
+    employee_portal: true,
+    intern_portal: true,
+    super_admin: true
+  });
 
+  const defaultOfficeAdminPermissions = JSON.stringify({
+    biometric_attendance: true,
+    excel_upload: true,
+    employee_management: true,
+    forms_downloads: true,
+    intern_onboarding: true,
+    ai_suite: true,
+    file_transfer: true,
+    employee_portal: true,
+    ims_access: false,
+    intern_portal: false,
+    super_admin: false
+  });
+
+  const defaultImsPermissions = JSON.stringify({
+    ims_access: true,
+    intern_onboarding: true,
+    forms_downloads: true,
+    ai_suite: true,
+    file_transfer: true,
+    intern_portal: true,
+    employee_portal: false,
+    biometric_attendance: false,
+    excel_upload: false,
+    employee_management: false,
+    super_admin: false
+  });
+
+  const defaultAoPermissions = JSON.stringify({
+    intern_onboarding: true,
+    employee_management: true,
+    forms_downloads: true,
+    ai_suite: true,
+    file_transfer: true,
+    employee_portal: true,
+    biometric_attendance: false,
+    excel_upload: false,
+    ims_access: false,
+    intern_portal: false,
+    super_admin: false
+  });
+
+  const defaultEmployeePermissions = JSON.stringify({
+    employee_portal: true,
+    forms_downloads: true,
+    ai_suite: true,
+    file_transfer: true,
+    biometric_attendance: false,
+    excel_upload: false,
+    employee_management: false,
+    intern_onboarding: false,
+    ims_access: false,
+    intern_portal: false,
+    super_admin: false
+  });
+
+  const defaultInternPermissions = JSON.stringify({
+    intern_portal: true,
+    ims_access: true,
+    forms_downloads: true,
+    ai_suite: true,
+    file_transfer: true,
+    biometric_attendance: false,
+    excel_upload: false,
+    employee_management: false,
+    employee_portal: false,
+    intern_onboarding: false,
+    super_admin: false
+  });
+
+  if (!superCheck) {
+    console.log('[Database] Seeding persistent Super Admin governance account into database...');
+    const insertSuper = db.prepare(`
+      INSERT INTO users (username, email, password_hash, full_name, designation, role_name, role_id, module_permissions, status)
+      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
+    `);
+    await insertSuper.run('superadmin', 'superadmin@assac.internal', 'super123', 'Super Admin Operator', 'System Governance Lead', 'Super Admin', 1, fullPermissions, 'Active');
+  } else {
+    // Keep superadmin with full permissions
+    await db.prepare("UPDATE users SET module_permissions = ? WHERE LOWER(username) = 'superadmin'").run(fullPermissions);
+  }
+
+  // Update existing users in database that have missing, null, or empty module_permissions
+  await db.prepare("UPDATE users SET module_permissions = ? WHERE (role_name = 'Admin' OR role_name = 'Office Admin') AND (module_permissions IS NULL OR module_permissions = '' OR module_permissions = '{}')").run(defaultOfficeAdminPermissions);
+  await db.prepare("UPDATE users SET module_permissions = ? WHERE (role_name = 'IMS Admin' OR role_name = 'IMS Officer') AND (module_permissions IS NULL OR module_permissions = '' OR module_permissions = '{}')").run(defaultImsPermissions);
+  await db.prepare("UPDATE users SET module_permissions = ? WHERE (role_name = 'Administrative Officer' OR role_name = 'AO') AND (module_permissions IS NULL OR module_permissions = '' OR module_permissions = '{}')").run(defaultAoPermissions);
+  await db.prepare("UPDATE users SET module_permissions = ? WHERE role_name = 'Employee' AND (module_permissions IS NULL OR module_permissions = '' OR module_permissions = '{}')").run(defaultEmployeePermissions);
+  await db.prepare("UPDATE users SET module_permissions = ? WHERE role_name = 'Intern' AND (module_permissions IS NULL OR module_permissions = '' OR module_permissions = '{}')").run(defaultInternPermissions);
+
+  const userRes = await db.prepare('SELECT COUNT(*) as count FROM users').get();
+  if (!userRes || Number(userRes.count) <= 1) {
     const insertUser = db.prepare(`
       INSERT INTO users (username, email, password_hash, full_name, designation, role_name, role_id, module_permissions, status)
       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
     `);
 
-    await insertUser.run('superadmin', 'superadmin@assac.internal', 'super123', 'Super Admin Operator', 'System Governance Lead', 'Super Admin', 1, defaultPermissions, 'Active');
-    await insertUser.run('admin', 'admin@assac.internal', 'admin123', 'Assam State Office Admin', 'HR Administrator', 'Office Admin', 2, defaultPermissions, 'Active');
-    await insertUser.run('ims', 'ims@assac.internal', 'ims123', 'IMS Governance Officer', 'Document & Student Officer', 'IMS Admin', 3, JSON.stringify({ intern_onboarding: true, ims_access: true, forms_downloads: true }), 'Active');
-    await insertUser.run('employee', 'employee@assac.internal', 'emp123', 'Staff Employee', 'Research Assistant', 'Employee', 4, JSON.stringify({ forms_downloads: true }), 'Active');
-    await insertUser.run('intern', 'intern@assac.internal', 'intern123', 'Ananya Sharma', 'Research Scholar Intern', 'Intern', 5, JSON.stringify({ ims_access: true, forms_downloads: true }), 'Active');
+    const adminCheck = await db.prepare("SELECT id FROM users WHERE LOWER(username) = 'admin'").get();
+    if (!adminCheck) {
+      await insertUser.run('admin', 'admin@assac.internal', 'admin123', 'Assam State Office Admin', 'HR Administrator', 'Office Admin', 2, defaultOfficeAdminPermissions, 'Active');
+    }
+    const imsCheck = await db.prepare("SELECT id FROM users WHERE LOWER(username) = 'ims'").get();
+    if (!imsCheck) {
+      await insertUser.run('ims', 'ims@assac.internal', 'ims123', 'IMS Governance Officer', 'Document & Student Officer', 'IMS Admin', 3, defaultImsPermissions, 'Active');
+    }
   }
 
   // Seed initial sample interns if empty (Official details only, no stipends)

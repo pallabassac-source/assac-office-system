@@ -3,23 +3,35 @@ const PDFDocument = require('pdfkit');
 const attendanceRepository = require('../repositories/attendance_repository');
 const timeService = require('./time_service');
 
-function formatTime12Hour(timeStr) {
+function formatTime24Hour(timeStr) {
   if (!timeStr || timeStr === '00:00' || timeStr === '00:00:00' || timeStr === '0') return '';
-  const str = String(timeStr).trim();
-  if (/am|pm/i.test(str)) return str;
+  let str = String(timeStr).trim();
+  
+  // If timeStr contains AM/PM, parse and convert to 24-hour HH:mm
+  const ampmMatch = str.match(/^(\d{1,2}):(\d{2})(?::\d{2})?\s*(AM|PM)$/i);
+  if (ampmMatch) {
+    let hours = parseInt(ampmMatch[1], 10);
+    const minutes = ampmMatch[2];
+    const ampm = ampmMatch[3].toUpperCase();
+    if (ampm === 'PM' && hours < 12) hours += 12;
+    if (ampm === 'AM' && hours === 12) hours = 0;
+    return `${String(hours).padStart(2, '0')}:${minutes}`;
+  }
+
+  // Standard HH:mm or HH:mm:ss format
   const parts = str.split(':');
   if (parts.length >= 2) {
-    let hours = parseInt(parts[0], 10);
+    const hours = parseInt(parts[0], 10);
     const minutes = parseInt(parts[1], 10);
-    if (isNaN(hours) || isNaN(minutes)) return timeStr;
-    const ampm = hours >= 12 ? 'PM' : 'AM';
-    hours = hours % 12;
-    hours = hours ? hours : 12;
-    const hStr = String(hours).padStart(2, '0');
-    const mStr = String(minutes).padStart(2, '0');
-    return `${hStr}:${mStr} ${ampm}`;
+    if (!isNaN(hours) && !isNaN(minutes)) {
+      if (hours === 0 && minutes === 0) return '';
+      return `${String(hours).padStart(2, '0')}:${String(minutes).padStart(2, '0')}`;
+    }
   }
-  return timeStr;
+
+  // Strip any leftover AM/PM if present
+  str = str.replace(/\s*(AM|PM)/gi, '').trim();
+  return (str === '00:00' || str === '0') ? '' : str;
 }
 
 class ExportService {
@@ -151,7 +163,7 @@ class ExportService {
         const cell = rArrival.getCell(colIdx);
         const dayRecord = emp.dailyMap ? (emp.dailyMap[col.key] || emp.dailyMap[col.dayNum]) : null;
         const arrTime = (dayRecord && dayRecord.arrival_time && dayRecord.arrival_time !== '00:00:00')
-          ? formatTime12Hour(dayRecord.arrival_time)
+          ? formatTime24Hour(dayRecord.arrival_time)
           : '';
         cell.value = arrTime;
         cell.font = { name: 'Calibri', size: 7, color: { argb: '475569' } };
@@ -174,7 +186,7 @@ class ExportService {
         const cell = rDeparture.getCell(colIdx);
         const dayRecord = emp.dailyMap ? (emp.dailyMap[col.key] || emp.dailyMap[col.dayNum]) : null;
         const depTime = (dayRecord && dayRecord.departure_time && dayRecord.departure_time !== '00:00:00')
-          ? formatTime12Hour(dayRecord.departure_time)
+          ? formatTime24Hour(dayRecord.departure_time)
           : '';
         cell.value = depTime;
         cell.font = { name: 'Calibri', size: 7, color: { argb: '475569' } };

@@ -11,6 +11,7 @@ import FormsDownloadsView from './FormsDownloadsView';
 import HolidayCalendarWidget from '../components/HolidayCalendarWidget';
 import StorageDiskGauge from '../components/StorageDiskGauge';
 import FileUploadModal from '../components/FileUploadModal';
+import RestrictedAccessView from '../components/RestrictedAccessView';
 import { 
   User, 
   Calendar, 
@@ -48,6 +49,10 @@ export default function EmployeePortalView({ selectedMonth, selectedYear }) {
   const [filesList, setFilesList] = useState([]);
   const [showUploadModal, setShowUploadModal] = useState(false);
 
+  const isSuperAdmin = user?.role === 'Super Admin' || user?.permissions?.super_admin === true;
+  const isOfficeAdmin = isSuperAdmin || user?.role === 'Office Admin' || user?.role === 'Admin' || user?.permissions?.biometric_attendance || user?.permissions?.employee_management;
+  const hasEmployeePortalAccess = isSuperAdmin || user?.role === 'Employee' || isOfficeAdmin || user?.permissions?.employee_portal === true;
+
   const loadFiles = async () => {
     try {
       const res = await getInternDocuments();
@@ -66,6 +71,10 @@ export default function EmployeePortalView({ selectedMonth, selectedYear }) {
 
   // Load employee's own record from backend
   const loadMyData = async () => {
+    if (!user?.isAuthenticated) {
+      setIsLoading(false);
+      return;
+    }
     setIsLoading(true);
     try {
       // Find matching employee record by username or name
@@ -73,18 +82,24 @@ export default function EmployeePortalView({ selectedMonth, selectedYear }) {
       let matched = null;
       if (res.success && res.data && res.data.length > 0) {
         matched = res.data.find(
-          r => r.emp_code.toLowerCase() === user.username.toLowerCase() ||
-               r.name.toLowerCase().includes(user.name?.toLowerCase() || '')
-        ) || res.data[0];
+          r => (r.emp_code && r.emp_code.toLowerCase() === user.username.toLowerCase()) ||
+               (r.name && user.name && r.name.toLowerCase().includes(user.name.toLowerCase()))
+        );
+        // Only allow fallback preview if user is an admin reviewing the portal
+        if (!matched && isOfficeAdmin) {
+          matched = res.data[0];
+        }
       }
 
-      setMyRecord(matched);
+      setMyRecord(matched || null);
 
       if (matched && matched.employee_id) {
         const detailRes = await getEmployeeDetail(matched.employee_id, month, year);
         if (detailRes && detailRes.success) {
           setMyDetail(detailRes.data);
         }
+      } else {
+        setMyDetail(null);
       }
     } catch (err) {
       console.warn('Error loading personal employee data:', err);
@@ -96,6 +111,28 @@ export default function EmployeePortalView({ selectedMonth, selectedYear }) {
   useEffect(() => {
     loadMyData();
   }, [month, year, user]);
+
+  if (!user?.isAuthenticated) {
+    return (
+      <RestrictedAccessView 
+        moduleName="Employee Self-Service Desk"
+        permissionKey="employee_portal"
+        description="Please sign in to view your personal biometric attendance records, duty rosters, and leave requests."
+        requiredRole="Employee"
+      />
+    );
+  }
+
+  if (!hasEmployeePortalAccess) {
+    return (
+      <RestrictedAccessView 
+        moduleName="Employee Self-Service Desk"
+        permissionKey="employee_portal"
+        description="Access to the Employee Self-Service Workspace has been disabled for your account by Super Admin."
+        requiredRole="Employee"
+      />
+    );
+  }
 
   return (
     <div className="space-y-6 animate-fadeIn pb-12">

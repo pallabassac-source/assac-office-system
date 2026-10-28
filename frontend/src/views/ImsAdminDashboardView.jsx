@@ -41,10 +41,17 @@ export default function ImsAdminDashboardView() {
 
   // RBAC Gating
   const isSuperAdmin = user?.role === 'Super Admin' || user?.permissions?.super_admin === true;
+  const hasVaultAccess = isSuperAdmin || user?.role === 'IMS Admin' || user?.permissions?.ims_access === true;
+  const hasInternAccess = isSuperAdmin || user?.role === 'IMS Admin' || user?.permissions?.intern_onboarding === true;
+  const hasFormsAccess = isSuperAdmin || user?.permissions?.forms_downloads === true;
+  const hasAuditAccess = isSuperAdmin;
+
   const isAuthorized = user?.isAuthenticated && (
     isSuperAdmin ||
-    user?.permissions?.ims_access === true ||
-    user?.permissions?.intern_onboarding === true
+    user?.role === 'IMS Admin' ||
+    hasVaultAccess ||
+    hasInternAccess ||
+    hasFormsAccess
   );
 
   if (!isAuthorized) {
@@ -213,50 +220,131 @@ export default function ImsAdminDashboardView() {
       <div className="space-y-6">
         {/* Scholar Registry */}
         {activeTab === 'directory' && (
-          <InternsPortalView defaultTab="directory" />
+          (hasInternAccess || hasVaultAccess) ? (
+            <InternsPortalView defaultTab="directory" />
+          ) : (
+            <RestrictedAccessView 
+              moduleName="Scholar Registry Directory"
+              permissionKey="intern_onboarding"
+              description="Access to the Scholar Registry Directory is restricted based on permissions set by Super Admin."
+              requiredRole="IMS Admin"
+            />
+          )
         )}
 
         {/* Onboard Scholar Desk */}
         {activeTab === 'onboard' && (
-          <InternsPortalView defaultTab="directory" autoOpenOnboard={true} />
+          hasInternAccess ? (
+            <InternsPortalView defaultTab="directory" autoOpenOnboard={true} />
+          ) : (
+            <RestrictedAccessView 
+              moduleName="Scholar Onboarding Desk"
+              permissionKey="intern_onboarding"
+              description="Access to scholar onboarding and credential provisioning has been disabled for your account by Super Admin."
+              requiredRole="IMS Admin"
+            />
+          )
         )}
 
         {/* Academic Departments */}
         {activeTab === 'departments' && (
-          <InternsPortalView defaultTab="directory" autoOpenAddDept={true} />
+          hasInternAccess ? (
+            <InternsPortalView defaultTab="directory" autoOpenAddDept={true} />
+          ) : (
+            <RestrictedAccessView 
+              moduleName="Academic Departments Management"
+              permissionKey="intern_onboarding"
+              description="Access to academic departments and faculties has been disabled for your account by Super Admin."
+              requiredRole="IMS Admin"
+            />
+          )
         )}
 
         {/* Project Deliverables Vault (10 GB) */}
         {activeTab === 'deliverables' && (
-          <InternsPortalView defaultTab="documents" autoOpenDocUpload={false} />
+          hasVaultAccess ? (
+            <InternsPortalView defaultTab="documents" autoOpenDocUpload={false} />
+          ) : (
+            <RestrictedAccessView 
+              moduleName="Deliverables Vault (10 GB)"
+              permissionKey="ims_access"
+              description="Access to project deliverables and research thesis vault is restricted to IMS Officers."
+              requiredRole="IMS Admin"
+            />
+          )
         )}
 
         {/* Storage Disk Partition Status & Network Hub */}
         {activeTab === 'storage' && (
-          <div className="space-y-6">
-            <StorageDiskGauge />
-            <InternsPortalView defaultTab="documents" />
-          </div>
+          hasVaultAccess ? (
+            <div className="space-y-6">
+              <StorageDiskGauge />
+              <InternsPortalView defaultTab="documents" />
+            </div>
+          ) : (
+            <RestrictedAccessView 
+              moduleName="Storage Partition & Quota Monitor"
+              permissionKey="ims_access"
+              description="Access to storage disk partitions and quota management is restricted to authorized officers."
+              requiredRole="IMS Admin"
+            />
+          )
         )}
 
         {/* E-Certificate Issuance Desk */}
         {activeTab === 'certificates' && (
-          <InternManagementView defaultTab="certificates" />
+          hasInternAccess ? (
+            <InternManagementView defaultTab="certificates" />
+          ) : (
+            <RestrictedAccessView 
+              moduleName="E-Certificate Issuance Desk"
+              permissionKey="intern_onboarding"
+              description="Access to completion e-certificate generation, verification, and email dispatch has been disabled for your account by Super Admin."
+              requiredRole="IMS Admin"
+            />
+          )
         )}
 
         {/* Student Clearance & Verification */}
         {activeTab === 'clearance' && (
-          <InternsPortalView defaultTab="onboarding" />
+          (hasInternAccess || hasVaultAccess) ? (
+            <InternsPortalView defaultTab="onboarding" />
+          ) : (
+            <RestrictedAccessView 
+              moduleName="Scholar Clearance & Verification Desk"
+              permissionKey="ims_access"
+              description="Access to student project clearance and exit verification is restricted to authorized officers."
+              requiredRole="IMS Admin"
+            />
+          )
         )}
 
         {/* Academic Forms Desk */}
         {activeTab === 'forms' && (
-          <FormsDownloadsView />
+          hasFormsAccess ? (
+            <FormsDownloadsView />
+          ) : (
+            <RestrictedAccessView 
+              moduleName="Academic & Employee Forms Desk"
+              permissionKey="forms_downloads"
+              description="Access to downloadable office templates has been restricted for your account by Super Admin."
+              requiredRole="Employee"
+            />
+          )
         )}
 
         {/* IMS Security Audit Trail */}
         {activeTab === 'audit' && (
-          <AuditLogsView />
+          hasAuditAccess ? (
+            <AuditLogsView />
+          ) : (
+            <RestrictedAccessView 
+              moduleName="IMS Security Audit Trail"
+              permissionKey="super_admin"
+              description="Access to security audit logs and system modification history is strictly restricted to Super Admin."
+              requiredRole="Super Admin"
+            />
+          )
         )}
       </div>
 

@@ -10,11 +10,15 @@ const DEFAULT_GUEST_USER = {
   role: 'Visitor',
   permissions: {
     biometric_attendance: false,
+    excel_upload: false,
+    employee_management: false,
     forms_downloads: false,
     intern_onboarding: false,
     ims_access: false,
     ai_suite: false,
-    excel_upload: false,
+    file_transfer: false,
+    employee_portal: false,
+    intern_portal: false,
     super_admin: false
   },
   isAuthenticated: false
@@ -32,11 +36,15 @@ const DEFAULT_USERS_LIST = [
     status: 'Active',
     permissions: {
       biometric_attendance: true,
+      excel_upload: true,
+      employee_management: true,
       forms_downloads: true,
       intern_onboarding: true,
-      ims_access: false,
       ai_suite: true,
-      excel_upload: true,
+      file_transfer: true,
+      employee_portal: true,
+      ims_access: false,
+      intern_portal: false,
       super_admin: false
     }
   },
@@ -50,12 +58,16 @@ const DEFAULT_USERS_LIST = [
     password: 'ims123',
     status: 'Active',
     permissions: {
-      biometric_attendance: false,
-      forms_downloads: true,
-      intern_onboarding: true,
       ims_access: true,
-      ai_suite: false,
+      intern_onboarding: true,
+      forms_downloads: true,
+      ai_suite: true,
+      file_transfer: true,
+      intern_portal: true,
+      employee_portal: false,
+      biometric_attendance: false,
       excel_upload: false,
+      employee_management: false,
       super_admin: false
     }
   },
@@ -69,12 +81,16 @@ const DEFAULT_USERS_LIST = [
     password: 'emp123',
     status: 'Active',
     permissions: {
-      biometric_attendance: false,
+      employee_portal: true,
       forms_downloads: true,
+      ai_suite: true,
+      file_transfer: true,
+      biometric_attendance: false,
+      excel_upload: false,
+      employee_management: false,
       intern_onboarding: false,
       ims_access: false,
-      ai_suite: true,
-      excel_upload: false,
+      intern_portal: false,
       super_admin: false
     }
   },
@@ -88,12 +104,16 @@ const DEFAULT_USERS_LIST = [
     password: 'intern123',
     status: 'Active',
     permissions: {
-      biometric_attendance: false,
-      forms_downloads: true,
-      intern_onboarding: false,
+      intern_portal: true,
       ims_access: true,
-      ai_suite: false,
+      forms_downloads: true,
+      ai_suite: true,
+      file_transfer: true,
+      biometric_attendance: false,
       excel_upload: false,
+      employee_management: false,
+      employee_portal: false,
+      intern_onboarding: false,
       super_admin: false
     }
   },
@@ -108,11 +128,15 @@ const DEFAULT_USERS_LIST = [
     status: 'Active',
     permissions: {
       biometric_attendance: true,
-      forms_downloads: true,
-      intern_onboarding: true,
-      ims_access: true,
-      ai_suite: true,
       excel_upload: true,
+      employee_management: true,
+      ims_access: true,
+      intern_onboarding: true,
+      forms_downloads: true,
+      ai_suite: true,
+      file_transfer: true,
+      employee_portal: true,
+      intern_portal: true,
       super_admin: true
     }
   }
@@ -137,9 +161,16 @@ export const AuthProvider = ({ children }) => {
               (u.username && u.username.toLowerCase() === parsed.username?.toLowerCase()) ||
               (u.id && parsed.id && u.id === parsed.id)
             );
-            if (fresh && fresh.permissions) {
-              parsed.permissions = fresh.permissions;
-              parsed.role = fresh.role || parsed.role;
+            if (fresh) {
+              if (fresh.status === 'Inactive') {
+                localStorage.removeItem('assac_active_user');
+                localStorage.removeItem('assac_jwt_token');
+                return DEFAULT_GUEST_USER;
+              }
+              if (fresh.permissions) {
+                parsed.permissions = fresh.permissions;
+                parsed.role = fresh.role || parsed.role;
+              }
             }
           }
           return parsed;
@@ -174,17 +205,28 @@ export const AuthProvider = ({ children }) => {
             localStorage.setItem('assac_system_users', JSON.stringify(res.data));
           } catch (e) {}
 
-          // Synchronize active user permissions immediately
+          // Synchronize active user permissions immediately & evict if deactivated
           setUser(currentUser => {
             if (!currentUser || !currentUser.isAuthenticated) return currentUser;
             const fresh = res.data.find(u => 
               (u.username && u.username.toLowerCase() === currentUser.username?.toLowerCase()) ||
-              (u.id && currentUser.id && u.id === currentUser.id)
+              (u.id && currentUser.id && u.id === currentUser.id && u.role === currentUser.role)
             );
             if (fresh) {
+              if (fresh.status === 'Inactive') {
+                console.warn('Active user account has been deactivated by Super Admin. Evicting session.');
+                try {
+                  localStorage.removeItem('assac_active_user');
+                  localStorage.removeItem('assac_jwt_token');
+                } catch (e) {}
+                return DEFAULT_GUEST_USER;
+              }
+
               const updated = {
                 ...currentUser,
+                id: fresh.id || currentUser.id,
                 role: fresh.role || currentUser.role,
+                status: fresh.status || 'Active',
                 permissions: fresh.permissions ? { ...fresh.permissions } : currentUser.permissions
               };
               try {
@@ -213,20 +255,27 @@ export const AuthProvider = ({ children }) => {
   };
 
   const addOrUpdateUser = async (userData) => {
+    let savedUserData = userData;
     try {
-      await saveSystemUserApi(userData);
+      const res = await saveSystemUserApi(userData);
+      if (res && res.success && res.data && res.data.id) {
+        savedUserData = { ...userData, id: res.data.id };
+      }
     } catch (e) {
       console.warn('Backend save notice, saving locally:', e.message);
     }
 
     setSystemAccounts(prev => {
-      const existingIdx = prev.findIndex(u => u.username.toLowerCase() === userData.username.toLowerCase() || (userData.id && u.id === userData.id));
+      const existingIdx = prev.findIndex(u => 
+        (u.username && savedUserData.username && u.username.toLowerCase() === savedUserData.username.toLowerCase()) || 
+        (savedUserData.id && u.id === savedUserData.id)
+      );
       let updated;
       if (existingIdx >= 0) {
         updated = [...prev];
-        updated[existingIdx] = { ...updated[existingIdx], ...userData };
+        updated[existingIdx] = { ...updated[existingIdx], ...savedUserData };
       } else {
-        updated = [userData, ...prev];
+        updated = [savedUserData, ...prev];
       }
       try {
         localStorage.setItem('assac_system_users', JSON.stringify(updated));
@@ -234,16 +283,27 @@ export const AuthProvider = ({ children }) => {
       return updated;
     });
 
-    // Propagate updated permissions immediately to the active session if matched
+    // Propagate updated permissions to the active session only if it is the EXACT same user
     setUser(prevUser => {
-      if (prevUser?.isAuthenticated && (
-        (userData.username && prevUser.username?.toLowerCase() === userData.username.toLowerCase()) ||
-        (userData.id && prevUser.id === userData.id)
-      )) {
+      if (!prevUser?.isAuthenticated) return prevUser;
+
+      // Safe match by username or matched ID with same username
+      const isTargetActiveUser = (savedUserData.username && prevUser.username?.toLowerCase() === savedUserData.username.toLowerCase());
+
+      if (isTargetActiveUser) {
+        if (savedUserData.status === 'Inactive') {
+          console.warn('Current account set to Inactive. Evicting session.');
+          try {
+            localStorage.removeItem('assac_active_user');
+            localStorage.removeItem('assac_jwt_token');
+          } catch (e) {}
+          return DEFAULT_GUEST_USER;
+        }
+
         const updated = {
           ...prevUser,
-          ...userData,
-          permissions: userData.permissions ? { ...userData.permissions } : prevUser.permissions,
+          ...savedUserData,
+          permissions: savedUserData.permissions ? { ...savedUserData.permissions } : prevUser.permissions,
           isAuthenticated: true
         };
         try {
@@ -282,6 +342,9 @@ export const AuthProvider = ({ children }) => {
         setUser(sessionUserData);
         try {
           localStorage.setItem('assac_active_user', JSON.stringify(sessionUserData));
+          if (res.token) {
+            localStorage.setItem('assac_jwt_token', res.token);
+          }
         } catch (e) {}
         setIsLoginModalOpen(false);
         setLoginError('');
@@ -302,10 +365,12 @@ export const AuthProvider = ({ children }) => {
         return false;
       }
       const sessionUserData = {
+        id: matchedUser.id,
         username: matchedUser.username,
         name: matchedUser.name || matchedUser.fullName,
         email: matchedUser.email,
         role: matchedUser.role,
+        status: matchedUser.status || 'Active',
         permissions: matchedUser.permissions || {},
         isAuthenticated: true
       };
@@ -326,6 +391,7 @@ export const AuthProvider = ({ children }) => {
     setUser(DEFAULT_GUEST_USER);
     try {
       localStorage.removeItem('assac_active_user');
+      localStorage.removeItem('assac_jwt_token');
     } catch (e) {}
   };
 

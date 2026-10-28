@@ -2,15 +2,15 @@ import React from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 import HolidayCalendarWidget from '../components/HolidayCalendarWidget';
-import { 
-  Building2, 
-  Clock, 
-  GraduationCap, 
-  FileText, 
-  ArrowRight, 
-  CheckCircle2, 
-  UserCheck, 
-  BookOpen, 
+import {
+  Building2,
+  Clock,
+  GraduationCap,
+  FileText,
+  ArrowRight,
+  CheckCircle2,
+  UserCheck,
+  BookOpen,
   Sparkles,
   Layers,
   ArrowLeftRight,
@@ -23,7 +23,7 @@ export default function InternalHubView() {
 
   return (
     <div className="space-y-6 animate-fadeIn pb-12">
-      
+
       {/* ASSAC Internal Intranet Hub Header Banner - Lite Theme */}
       <div className="bg-white rounded-2xl p-6 border border-slate-200 space-y-4 shadow-sm border-l-4 border-l-indigo-600">
         <div className="flex flex-col md:flex-row items-start md:items-center justify-between gap-6">
@@ -44,7 +44,7 @@ export default function InternalHubView() {
             </h1>
 
             <p className="text-slate-600 text-xs sm:text-sm leading-relaxed font-medium">
-              Centralized administrative portal for Biometric Attendance Register processing, Official Employee Forms Desk, 
+              Centralized administrative portal for Biometric Attendance Register processing, Official Employee Forms Desk,
               Research Intern Onboarding, IMS System Clearance, and ASSAC Enterprise Neural Assistant Suite.
             </p>
           </div>
@@ -81,21 +81,23 @@ export default function InternalHubView() {
           </div>
           <span className="text-xs font-mono font-bold px-3 py-1 rounded-full bg-white border border-slate-200 text-slate-700 shadow-2xs">
             {[
-              user?.isAuthenticated && (user?.role === 'Super Admin' || user?.permissions?.super_admin || user?.permissions?.biometric_attendance === true),
-              user?.isAuthenticated && (user?.permissions?.intern_onboarding || user?.role === 'Super Admin' || user?.role === 'IMS Admin'),
-              true,
-              true,
-              true,
-              true
+              user?.isAuthenticated && (user?.role === 'Super Admin' || user?.permissions?.super_admin || user?.permissions?.biometric_attendance === true || user?.permissions?.excel_upload === true),
+              user?.isAuthenticated && (user?.role === 'Super Admin' || user?.permissions?.super_admin || user?.permissions?.forms_downloads === true),
+              user?.isAuthenticated && (user?.permissions?.intern_onboarding || user?.role === 'Super Admin' || user?.role === 'IMS Admin' || user?.role === 'Admin'),
+              user?.isAuthenticated && (user?.role === 'Super Admin' || user?.permissions?.super_admin || user?.permissions?.ims_access || user?.permissions?.intern_onboarding),
+              user?.role === 'Super Admin' || user?.permissions?.super_admin || user?.permissions?.ai_suite === true,
+              !user?.isAuthenticated || user?.role === 'Super Admin' || user?.permissions?.super_admin || user?.permissions?.file_transfer !== false,
+              user?.isAuthenticated && (user?.role === 'Employee' || user?.permissions?.employee_portal || user?.role === 'Admin' || user?.role === 'Office Admin' || user?.role === 'Super Admin'),
+              user?.isAuthenticated && (user?.role === 'Intern' || user?.permissions?.intern_portal || user?.role === 'IMS Admin' || user?.role === 'Super Admin')
             ].filter(Boolean).length} Services Active
           </span>
         </div>
 
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
-          
+
           {/* Sensitive Service Desk 1: Biometric Attendance System */}
           {user?.isAuthenticated && (user?.role === 'Super Admin' || user?.permissions?.super_admin || user?.permissions?.biometric_attendance === true) && (
-            <div 
+            <div
               onClick={() => navigate('/office-admin')}
               className="bg-white rounded-2xl border border-slate-200 overflow-hidden flex flex-col justify-between cursor-pointer group shadow-2xs hover:shadow-md hover:border-indigo-400 transition-all duration-200"
             >
@@ -126,38 +128,40 @@ export default function InternalHubView() {
           )}
 
           {/* Service Desk 2: Employee Forms Repository */}
-          <div 
-            onClick={() => navigate('/forms')}
-            className="bg-white rounded-2xl border border-slate-200 overflow-hidden flex flex-col justify-between cursor-pointer group shadow-2xs hover:shadow-md hover:border-emerald-400 transition-all duration-200"
-          >
-            <div>
-              <div className="bg-emerald-50/70 px-4 py-2.5 border-b border-emerald-100 flex items-center justify-between">
-                <span className="text-emerald-800 font-mono font-extrabold text-xs">DESK-02 • FORMS & REPOSITORY</span>
-                <FileText className="h-4 w-4 text-emerald-600" />
-              </div>
-              <div className="p-5 space-y-2 text-xs">
-                <h3 className="font-extrabold text-slate-900 text-sm group-hover:text-emerald-700 transition-colors">
-                  Forms & Formats Download Desk
-                </h3>
-                <p className="text-slate-600 text-xs leading-relaxed font-normal">
-                  Official office application formats: Leave (CL/EL/ML), TA/DA claim vouchers, missed punch slips.
-                </p>
-                <div className="pt-2 text-[11px] font-mono text-slate-500 flex justify-between border-t border-slate-100">
-                  <span>Count: 14 Formats</span>
-                  <span className="font-bold text-emerald-700">All Employees</span>
+          {user?.isAuthenticated && (user?.role === 'Super Admin' || user?.permissions?.super_admin || user?.permissions?.forms_downloads === true) && (
+            <div
+              onClick={() => navigate('/forms')}
+              className="bg-white rounded-2xl border border-slate-200 overflow-hidden flex flex-col justify-between cursor-pointer group shadow-2xs hover:shadow-md hover:border-emerald-400 transition-all duration-200"
+            >
+              <div>
+                <div className="bg-emerald-50/70 px-4 py-2.5 border-b border-emerald-100 flex items-center justify-between">
+                  <span className="text-emerald-800 font-mono font-extrabold text-xs">DESK-02 • FORMS & REPOSITORY</span>
+                  <FileText className="h-4 w-4 text-emerald-600" />
+                </div>
+                <div className="p-5 space-y-2 text-xs">
+                  <h3 className="font-extrabold text-slate-900 text-sm group-hover:text-emerald-700 transition-colors">
+                    Forms & Formats Download Desk
+                  </h3>
+                  <p className="text-slate-600 text-xs leading-relaxed font-normal">
+                    Official office application formats: Leave (CL/EL/ML), TA/DA claim vouchers, missed punch slips.
+                  </p>
+                  <div className="pt-2 text-[11px] font-mono text-slate-500 flex justify-between border-t border-slate-100">
+                    <span>Count: 14 Formats</span>
+                    <span className="font-bold text-emerald-700">Authorized Staff</span>
+                  </div>
                 </div>
               </div>
-            </div>
 
-            <div className="p-3 bg-slate-50 border-t border-slate-200 flex items-center justify-between text-xs font-bold text-emerald-700">
-              <span>Open Download Desk</span>
-              <ArrowRight className="h-4 w-4 group-hover:translate-x-1 transition-transform text-emerald-600" />
+              <div className="p-3 bg-slate-50 border-t border-slate-200 flex items-center justify-between text-xs font-bold text-emerald-700">
+                <span>Open Download Desk</span>
+                <ArrowRight className="h-4 w-4 group-hover:translate-x-1 transition-transform text-emerald-600" />
+              </div>
             </div>
-          </div>
+          )}
 
           {/* Sensitive Service Desk 3: Intern Onboarding Desk */}
-          {user?.isAuthenticated && user?.permissions?.intern_onboarding && (
-            <div 
+          {user?.isAuthenticated && (user?.permissions?.intern_onboarding || user?.role === 'Super Admin' || user?.role === 'IMS Admin') && (
+            <div
               onClick={() => navigate('/ims-admin')}
               className="bg-white rounded-2xl border border-slate-200 overflow-hidden flex flex-col justify-between cursor-pointer group shadow-2xs hover:shadow-md hover:border-indigo-400 transition-all duration-200"
             >
@@ -188,8 +192,8 @@ export default function InternalHubView() {
           )}
 
           {/* Service Desk 4: IMS Document Clearance & Archive */}
-          {(user?.role === 'Super Admin' || user?.permissions?.super_admin || user?.permissions?.ims_access || user?.permissions?.intern_onboarding) && (
-            <div 
+          {user?.isAuthenticated && (user?.role === 'Super Admin' || user?.permissions?.super_admin || user?.permissions?.ims_access || user?.permissions?.intern_onboarding) && (
+            <div
               onClick={() => navigate('/ims-admin')}
               className="bg-white rounded-2xl border border-slate-200 overflow-hidden flex flex-col justify-between cursor-pointer group shadow-2xs hover:shadow-md hover:border-sky-400 transition-all duration-200"
             >
@@ -221,7 +225,7 @@ export default function InternalHubView() {
 
           {/* Service Desk 5: Internal AI Employee Utility Suite */}
           {(user?.role === 'Super Admin' || user?.permissions?.super_admin || user?.permissions?.ai_suite) && (
-            <div 
+            <div
               onClick={() => navigate('/ai')}
               className="bg-white rounded-2xl border border-amber-300 overflow-hidden flex flex-col justify-between cursor-pointer group shadow-2xs hover:shadow-md hover:border-amber-400 transition-all duration-200 col-span-1 sm:col-span-2 lg:col-span-1"
             >
@@ -253,35 +257,101 @@ export default function InternalHubView() {
           )}
 
           {/* Service Desk 6: High-Speed LAN File Transfer Desk */}
-          <div 
-            onClick={() => navigate('/transfer')}
-            className="bg-white rounded-2xl border border-indigo-200 overflow-hidden flex flex-col justify-between cursor-pointer group shadow-2xs hover:shadow-md hover:border-indigo-400 transition-all duration-200"
-          >
-            <div>
-              <div className="bg-indigo-600 px-4 py-2.5 border-b border-indigo-500 flex items-center justify-between text-white">
-                <span className="font-mono font-extrabold text-xs">DESK-06 • FAST FILE TRANSFER</span>
-                <ArrowLeftRight className="h-4 w-4 text-amber-300" />
-              </div>
-              <div className="p-5 space-y-2 text-xs">
-                <h3 className="font-extrabold text-slate-900 text-sm group-hover:text-indigo-600 transition-colors flex items-center gap-1.5">
-                  <span>Intranet LAN File Transfer</span>
-                  <span className="px-2 py-0.2 rounded-full text-[10px] font-bold bg-amber-100 text-amber-900 border border-amber-300">3-DIGIT KEY</span>
-                </h3>
-                <p className="text-slate-600 text-xs leading-relaxed font-normal">
-                  Fast file transfers between colleagues. System generates a 3 unique number key for the receiver. Automatically deleted after 24 hours.
-                </p>
-                <div className="pt-2 text-[11px] font-mono text-slate-500 flex justify-between border-t border-slate-100">
-                  <span>Buffer: 24 Hours</span>
-                  <span className="font-bold text-indigo-700">All LAN Users</span>
+          {(!user?.isAuthenticated || user?.role === 'Super Admin' || user?.permissions?.super_admin || user?.permissions?.file_transfer !== false) && (
+            <div
+              onClick={() => navigate('/transfer')}
+              className="bg-white rounded-2xl border border-indigo-200 overflow-hidden flex flex-col justify-between cursor-pointer group shadow-2xs hover:shadow-md hover:border-indigo-400 transition-all duration-200"
+            >
+              <div>
+                <div className="bg-indigo-600 px-4 py-2.5 border-b border-indigo-500 flex items-center justify-between text-white">
+                  <span className="font-mono font-extrabold text-xs">DESK-06 • FAST FILE TRANSFER</span>
+                  <ArrowLeftRight className="h-4 w-4 text-amber-300" />
+                </div>
+                <div className="p-5 space-y-2 text-xs">
+                  <h3 className="font-extrabold text-slate-900 text-sm group-hover:text-indigo-600 transition-colors flex items-center gap-1.5">
+                    <span>Intranet LAN File Transfer</span>
+                    <span className="px-2 py-0.2 rounded-full text-[10px] font-bold bg-amber-100 text-amber-900 border border-amber-300">3-DIGIT KEY</span>
+                  </h3>
+                  <p className="text-slate-600 text-xs leading-relaxed font-normal">
+                    Fast file transfers between colleagues. System generates a 3 unique number key for the receiver. Automatically deleted after 24 hours.
+                  </p>
+                  <div className="pt-2 text-[11px] font-mono text-slate-500 flex justify-between border-t border-slate-100">
+                    <span>Buffer: 24 Hours</span>
+                    <span className="font-bold text-indigo-700">All LAN Users</span>
+                  </div>
                 </div>
               </div>
-            </div>
 
-            <div className="p-3 bg-indigo-50 border-t border-indigo-100 flex items-center justify-between text-xs font-bold text-indigo-700">
-              <span>Open Transfer Desk</span>
-              <ArrowRight className="h-4 w-4 group-hover:translate-x-1 transition-transform text-indigo-600" />
+              <div className="p-3 bg-indigo-50 border-t border-indigo-100 flex items-center justify-between text-xs font-bold text-indigo-700">
+                <span>Open Transfer Desk</span>
+                <ArrowRight className="h-4 w-4 group-hover:translate-x-1 transition-transform text-indigo-600" />
+              </div>
             </div>
-          </div>
+          )}
+
+          {/* Service Desk 7: Staff Employee Self-Service Workspace */}
+          {user?.isAuthenticated && (user?.role === 'Employee' || user?.permissions?.employee_portal || user?.role === 'Admin' || user?.role === 'Office Admin' || user?.role === 'Super Admin') && (
+            <div
+              onClick={() => navigate('/employee-portal')}
+              className="bg-white rounded-2xl border border-emerald-200 overflow-hidden flex flex-col justify-between cursor-pointer group shadow-2xs hover:shadow-md hover:border-emerald-400 transition-all duration-200"
+            >
+              <div>
+                <div className="bg-emerald-700 px-4 py-2.5 border-b border-emerald-600 flex items-center justify-between text-white">
+                  <span className="font-mono font-extrabold text-xs">DESK-07 • STAFF SELF-SERVICE</span>
+                  <Layers className="h-4 w-4 text-emerald-200" />
+                </div>
+                <div className="p-5 space-y-2 text-xs">
+                  <h3 className="font-extrabold text-slate-900 text-sm group-hover:text-emerald-700 transition-colors">
+                    Staff Self-Service Desk
+                  </h3>
+                  <p className="text-slate-600 text-xs leading-relaxed font-normal">
+                    Personal attendance records, punch timings ledger, monthly duty roster, and leave requests.
+                  </p>
+                  <div className="pt-2 text-[11px] font-mono text-slate-500 flex justify-between border-t border-slate-100">
+                    <span>Duty Roster: Monthly</span>
+                    <span className="font-bold text-emerald-700">Employee Workspace</span>
+                  </div>
+                </div>
+              </div>
+
+              <div className="p-3 bg-emerald-50 border-t border-emerald-100 flex items-center justify-between text-xs font-bold text-emerald-700">
+                <span>Open Staff Workspace</span>
+                <ArrowRight className="h-4 w-4 group-hover:translate-x-1 transition-transform text-emerald-600" />
+              </div>
+            </div>
+          )}
+
+          {/* Service Desk 8: Intern Scholar Workspace */}
+          {user?.isAuthenticated && (user?.role === 'Intern' || user?.permissions?.intern_portal || user?.role === 'IMS Admin' || user?.role === 'Super Admin') && (
+            <div
+              onClick={() => navigate('/intern-portal')}
+              className="bg-white rounded-2xl border border-sky-200 overflow-hidden flex flex-col justify-between cursor-pointer group shadow-2xs hover:shadow-md hover:border-sky-400 transition-all duration-200"
+            >
+              <div>
+                <div className="bg-sky-700 px-4 py-2.5 border-b border-sky-600 flex items-center justify-between text-white">
+                  <span className="font-mono font-extrabold text-xs">DESK-08 • SCHOLAR WORKSPACE</span>
+                  <GraduationCap className="h-4 w-4 text-sky-200" />
+                </div>
+                <div className="p-5 space-y-2 text-xs">
+                  <h3 className="font-extrabold text-slate-900 text-sm group-hover:text-sky-700 transition-colors">
+                    Research Scholar Workspace
+                  </h3>
+                  <p className="text-slate-600 text-xs leading-relaxed font-normal">
+                    Academic project deliverable submissions, mentor feedback, progress tracking, and e-certificate downloads.
+                  </p>
+                  <div className="pt-2 text-[11px] font-mono text-slate-500 flex justify-between border-t border-slate-100">
+                    <span>Academic Scope: Research</span>
+                    <span className="font-bold text-sky-700">Intern Scholars</span>
+                  </div>
+                </div>
+              </div>
+
+              <div className="p-3 bg-sky-50 border-t border-sky-100 flex items-center justify-between text-xs font-bold text-sky-700">
+                <span>Open Scholar Workspace</span>
+                <ArrowRight className="h-4 w-4 group-hover:translate-x-1 transition-transform text-sky-600" />
+              </div>
+            </div>
+          )}
 
         </div>
       </div>

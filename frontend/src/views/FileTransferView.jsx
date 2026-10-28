@@ -1,6 +1,7 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { useSearchParams, useNavigate } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
+import RestrictedAccessView from '../components/RestrictedAccessView';
 import { 
   uploadTransferFile, 
   getTransferInfo, 
@@ -286,6 +287,20 @@ export default function FileTransferView() {
     if (['pdf', 'doc', 'docx', 'txt'].includes(ext)) return <FileText className="h-8 w-8 text-sky-500" />;
     return <File className="h-8 w-8 text-indigo-500" />;
   };
+
+  const isSuperAdmin = user?.role === 'Super Admin' || user?.permissions?.super_admin === true;
+  const hasTransferAccess = !user?.isAuthenticated || isSuperAdmin || user?.permissions?.file_transfer !== false;
+
+  if (user?.isAuthenticated && !hasTransferAccess) {
+    return (
+      <RestrictedAccessView 
+        moduleName="LAN Fast File Transfer Desk"
+        permissionKey="file_transfer"
+        description="Access to the LAN File Transfer Desk has been disabled for your account by Super Admin."
+        requiredRole="Employee"
+      />
+    );
+  }
 
   return (
     <div className="space-y-6 animate-fadeIn pb-16 max-w-6xl mx-auto">

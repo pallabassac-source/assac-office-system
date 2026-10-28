@@ -33,7 +33,7 @@ import {
   Eye,
   ExternalLink
 } from 'lucide-react';
-
+import RestrictedAccessView from '../components/RestrictedAccessView';
 
 export default function InternPortalView() {
   const { user } = useAuth();
@@ -47,7 +47,15 @@ export default function InternPortalView() {
     category: 'Project Deliverable'
   });
 
+  const isSuperAdmin = user?.role === 'Super Admin' || user?.permissions?.super_admin === true;
+  const isImsAuthorized = isSuperAdmin || user?.role === 'IMS Admin' || user?.role === 'IMS Officer' || user?.permissions?.ims_access === true || user?.permissions?.intern_onboarding === true;
+  const isInternUser = user?.role === 'Intern' || user?.permissions?.intern_portal === true;
+
   const loadData = async () => {
+    if (!user?.isAuthenticated) {
+      setIsLoading(false);
+      return;
+    }
     setIsLoading(true);
     try {
       const [internsRes, docsRes] = await Promise.all([
@@ -57,19 +65,27 @@ export default function InternPortalView() {
 
       if (internsRes && internsRes.data) {
         // Find matching intern profile by email, username, or name
-        const match = internsRes.data.find(
+        let match = internsRes.data.find(
           i => (i.email && i.email.toLowerCase() === user.email?.toLowerCase()) ||
                (i.user_login && i.user_login.toLowerCase() === user.username?.toLowerCase()) ||
-               (i.name && i.name.toLowerCase().includes(user.name?.toLowerCase() || ''))
-        ) || internsRes.data[0];
-        setInternProfile(match);
+               (i.name && i.name.toLowerCase() === user.name?.toLowerCase()) ||
+               (user.username && i.name && i.name.toLowerCase().includes(user.username.toLowerCase()))
+        );
+
+        // Only fallback to preview first scholar if user is an authorized IMS officer/admin
+        if (!match && isImsAuthorized) {
+          match = internsRes.data[0];
+        }
+        setInternProfile(match || null);
 
         if (docsRes && docsRes.data && match) {
           const myDocs = docsRes.data.filter(
             d => (d.intern_name && d.intern_name.toLowerCase().includes(match.name.toLowerCase())) ||
                  d.intern_id === match.id
           );
-          setDocuments(myDocs.length > 0 ? myDocs : docsRes.data.slice(0, 4));
+          setDocuments(myDocs);
+        } else {
+          setDocuments([]);
         }
       }
     } catch (err) {
@@ -82,6 +98,28 @@ export default function InternPortalView() {
   useEffect(() => {
     loadData();
   }, [user]);
+
+  if (!user?.isAuthenticated) {
+    return (
+      <RestrictedAccessView 
+        moduleName="Intern Scholar Workspace"
+        permissionKey="intern_onboarding"
+        description="Please sign in with your scholar credentials to view your academic profile, project deliverables, and e-certificates."
+        requiredRole="Intern"
+      />
+    );
+  }
+
+  if (!isInternUser && !isImsAuthorized) {
+    return (
+      <RestrictedAccessView 
+        moduleName="Intern Scholar Workspace"
+        permissionKey="intern_portal"
+        description="This workspace is designated for Research Intern Scholars and IMS Administrative Officers."
+        requiredRole="Intern"
+      />
+    );
+  }
 
   const handleSubmitDeliverable = async (e) => {
     e.preventDefault();
