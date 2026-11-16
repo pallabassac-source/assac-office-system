@@ -4,6 +4,7 @@ import {
   getInterns, 
   createIntern, 
   updateIntern, 
+  manageInternCredentials,
   deleteIntern, 
   issueInternCertificate,
   getDepartments,
@@ -41,6 +42,7 @@ import {
   ShieldCheck,
   Sparkles,
   KeyRound,
+  Edit3,
   Trash2,
   RefreshCw,
   Send,
@@ -98,6 +100,30 @@ export default function InternManagementView({ defaultTab = 'directory' }) {
 
   const [showPassword, setShowPassword] = useState(false);
 
+  // Edit Intern Profile Modal State
+  const [showEditModal, setShowEditModal] = useState(null);
+  const [editForm, setEditForm] = useState({
+    name: '',
+    email: '',
+    university: '',
+    degree: '',
+    department: '',
+    mentor: '',
+    project_title: '',
+    joining_date: '',
+    duration_months: 6,
+    status: 'Active',
+    attendance_rate: 100
+  });
+
+  // Credentials & Password Reset Modal State
+  const [showCredsModal, setShowCredsModal] = useState(null);
+  const [credsForm, setCredsForm] = useState({
+    username: '',
+    password: ''
+  });
+  const [showCredsPassword, setShowCredsPassword] = useState(false);
+
   // Fetch all live data from backend
   const loadData = async () => {
     setIsLoading(true);
@@ -137,6 +163,7 @@ export default function InternManagementView({ defaultTab = 'directory' }) {
       pass += chars.charAt(Math.floor(Math.random() * chars.length));
     }
     setNewIntern(prev => ({ ...prev, password: pass }));
+    setCredsForm(prev => ({ ...prev, password: pass }));
   };
 
   // Filtered Lists
@@ -284,6 +311,69 @@ export default function InternManagementView({ defaultTab = 'directory' }) {
       }
     } catch (err) {
       alert('Failed to delete intern: ' + (err.response?.data?.error || err.message));
+    }
+  };
+
+  const handleEditSubmit = async (e) => {
+    e.preventDefault();
+    if (!showEditModal) return;
+    if (!editForm.name.trim() || !editForm.university.trim()) {
+      alert('Name and University are required fields.');
+      return;
+    }
+
+    try {
+      const res = await updateIntern(showEditModal.id, {
+        name: editForm.name.trim(),
+        email: editForm.email.trim(),
+        university: editForm.university.trim(),
+        degree: editForm.degree.trim(),
+        department: editForm.department,
+        mentor: editForm.mentor.trim(),
+        project_title: editForm.project_title.trim(),
+        joining_date: editForm.joining_date,
+        duration_months: Number(editForm.duration_months) || 6,
+        status: editForm.status,
+        attendance_rate: Number(editForm.attendance_rate) || 100
+      });
+
+      if (res && res.success) {
+        alert(`Scholar profile updated for ${editForm.name}!`);
+        setShowEditModal(null);
+        if (selectedIntern && selectedIntern.id === showEditModal.id) {
+          setSelectedIntern(res.data);
+        }
+        loadData();
+      }
+    } catch (err) {
+      console.error('Error updating intern:', err);
+      alert('Failed to update scholar profile: ' + (err.response?.data?.error || err.message));
+    }
+  };
+
+  const handleUpdateCredsSubmit = async (e) => {
+    e.preventDefault();
+    if (!showCredsModal) return;
+    if (!credsForm.password.trim()) {
+      alert('Password cannot be empty');
+      return;
+    }
+
+    try {
+      const res = await manageInternCredentials(showCredsModal.id, {
+        username: credsForm.username.trim(),
+        password: credsForm.password.trim()
+      });
+
+      if (res && res.success) {
+        const usernameDisp = credsForm.username.trim() || showCredsModal.user_login || showCredsModal.intern_code.toLowerCase();
+        alert(`Portal credentials updated for ${showCredsModal.name}!\n\nUsername: @${usernameDisp}\nPassword: ${credsForm.password}\n\nThe scholar can now sign in using these credentials.`);
+        setShowCredsModal(null);
+        loadData();
+      }
+    } catch (err) {
+      console.error('Error updating credentials:', err);
+      alert('Failed to update credentials: ' + (err.response?.data?.error || err.message));
     }
   };
 
@@ -612,6 +702,51 @@ export default function InternManagementView({ defaultTab = 'directory' }) {
                             )
                           )}
 
+                          {/* Password & Credentials Management */}
+                          {canOnboard && (
+                            <button
+                              onClick={() => {
+                                setCredsForm({
+                                  username: intern.user_login || intern.intern_code.toLowerCase(),
+                                  password: ''
+                                });
+                                generateRandomPassword();
+                                setShowCredsPassword(false);
+                                setShowCredsModal(intern);
+                              }}
+                              className="p-1.5 rounded-lg bg-indigo-50 hover:bg-indigo-600 text-indigo-600 hover:text-white transition-colors cursor-pointer shadow-2xs border border-indigo-200/60"
+                              title="Manage / Reset Portal Password"
+                            >
+                              <KeyRound className="h-3.5 w-3.5" />
+                            </button>
+                          )}
+
+                          {/* Edit Intern Profile */}
+                          {canOnboard && (
+                            <button
+                              onClick={() => {
+                                setEditForm({
+                                  name: intern.name || '',
+                                  email: intern.email || '',
+                                  university: intern.university || '',
+                                  degree: intern.degree || '',
+                                  department: intern.department || (departmentsList[0] || ''),
+                                  mentor: intern.mentor || '',
+                                  project_title: intern.project_title || '',
+                                  joining_date: intern.joining_date || '',
+                                  duration_months: intern.duration_months || 6,
+                                  status: intern.status || 'Active',
+                                  attendance_rate: intern.attendance_rate ?? 100
+                                });
+                                setShowEditModal(intern);
+                              }}
+                              className="p-1.5 rounded-lg bg-slate-100 hover:bg-slate-200 text-slate-700 border border-slate-300 transition-colors cursor-pointer shadow-2xs"
+                              title="Edit Scholar Details"
+                            >
+                              <Edit3 className="h-3.5 w-3.5" />
+                            </button>
+                          )}
+
                           {/* Delete Intern Button */}
                           {canOnboard && (
                             <button
@@ -906,20 +1041,67 @@ export default function InternManagementView({ defaultTab = 'directory' }) {
               </div>
             </div>
 
-            <div className="flex justify-between items-center pt-2 border-t border-slate-200">
-              {selectedIntern.certificate_issued && (
-                <button
-                  onClick={() => {
-                    const intn = selectedIntern;
-                    setSelectedIntern(null);
-                    setPreviewCertIntern(intn);
-                  }}
-                  className="px-3 py-1.5 bg-indigo-50 hover:bg-indigo-100 text-indigo-700 font-bold rounded-xl border border-indigo-200 cursor-pointer flex items-center gap-1.5"
-                >
-                  <Award className="h-4 w-4 text-indigo-600" />
-                  <span>Preview E-Certificate</span>
-                </button>
-              )}
+            <div className="flex justify-between items-center pt-2 border-t border-slate-200 flex-wrap gap-2">
+              <div className="flex items-center gap-2">
+                {selectedIntern.certificate_issued && (
+                  <button
+                    onClick={() => {
+                      const intn = selectedIntern;
+                      setSelectedIntern(null);
+                      setPreviewCertIntern(intn);
+                    }}
+                    className="px-3 py-1.5 bg-indigo-50 hover:bg-indigo-100 text-indigo-700 font-bold rounded-xl border border-indigo-200 cursor-pointer flex items-center gap-1.5"
+                  >
+                    <Award className="h-4 w-4 text-indigo-600" />
+                    <span>Preview E-Certificate</span>
+                  </button>
+                )}
+
+                {canOnboard && (
+                  <>
+                    <button
+                      onClick={() => {
+                        setCredsForm({
+                          username: selectedIntern.user_login || selectedIntern.intern_code.toLowerCase(),
+                          password: ''
+                        });
+                        generateRandomPassword();
+                        setShowCredsPassword(false);
+                        setShowCredsModal(selectedIntern);
+                      }}
+                      className="px-3 py-1.5 rounded-xl bg-indigo-50 hover:bg-indigo-600 text-indigo-700 hover:text-white border border-indigo-200 font-bold transition-colors cursor-pointer flex items-center gap-1.5"
+                      title="Reset Portal Password"
+                    >
+                      <KeyRound className="h-3.5 w-3.5" />
+                      <span>Reset Password</span>
+                    </button>
+
+                    <button
+                      onClick={() => {
+                        setEditForm({
+                          name: selectedIntern.name || '',
+                          email: selectedIntern.email || '',
+                          university: selectedIntern.university || '',
+                          degree: selectedIntern.degree || '',
+                          department: selectedIntern.department || (departmentsList[0] || ''),
+                          mentor: selectedIntern.mentor || '',
+                          project_title: selectedIntern.project_title || '',
+                          joining_date: selectedIntern.joining_date || '',
+                          duration_months: selectedIntern.duration_months || 6,
+                          status: selectedIntern.status || 'Active',
+                          attendance_rate: selectedIntern.attendance_rate ?? 100
+                        });
+                        setShowEditModal(selectedIntern);
+                      }}
+                      className="px-3 py-1.5 rounded-xl bg-slate-100 hover:bg-slate-200 text-slate-700 border border-slate-300 font-bold transition-colors cursor-pointer flex items-center gap-1.5"
+                      title="Edit Scholar Information"
+                    >
+                      <Edit3 className="h-3.5 w-3.5" />
+                      <span>Edit Details</span>
+                    </button>
+                  </>
+                )}
+              </div>
               
               <button
                 onClick={() => setSelectedIntern(null)}
@@ -1209,6 +1391,263 @@ export default function InternManagementView({ defaultTab = 'directory' }) {
                   className="px-3 py-1.5 rounded-xl bg-indigo-600 hover:bg-indigo-700 text-white font-extrabold shadow-xs cursor-pointer"
                 >
                   Add Department
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+
+      {/* Manage / Reset Intern Portal Credentials Modal */}
+      {showCredsModal && (
+        <div className="fixed inset-0 z-50 bg-slate-900/60 backdrop-blur-sm flex items-center justify-center p-4">
+          <div className="bg-white max-w-sm w-full p-6 rounded-2xl border border-slate-200 space-y-4 shadow-2xl relative text-xs animate-fadeIn">
+            <button 
+              onClick={() => setShowCredsModal(null)}
+              className="absolute top-4 right-4 text-slate-400 hover:text-slate-600 cursor-pointer"
+            >
+              <X className="h-5 w-5" />
+            </button>
+
+            <div className="flex items-center gap-2 text-slate-900 font-extrabold text-sm border-b border-slate-200 pb-3">
+              <KeyRound className="h-5 w-5 text-indigo-600" />
+              <span>Reset Password for {showCredsModal.name}</span>
+            </div>
+
+            <form onSubmit={handleUpdateCredsSubmit} className="space-y-3">
+              <div>
+                <label className="block text-slate-800 font-extrabold mb-1">Username / Student ID</label>
+                <input
+                  type="text"
+                  value={credsForm.username}
+                  onChange={(e) => setCredsForm({...credsForm, username: e.target.value})}
+                  className="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl text-slate-900 font-mono text-xs font-bold focus:outline-none focus:border-indigo-500"
+                  placeholder="e.g. int-2026-001"
+                />
+                <p className="text-[10px] text-slate-400 mt-1">Student identifier used to log in.</p>
+              </div>
+
+              <div>
+                <div className="flex items-center justify-between mb-1">
+                  <label className="block text-slate-800 font-extrabold">New Password *</label>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      const chars = 'ABCDEFGHJKLMNPQRSTUVWXYZabcdefghijkmnpqrstuvwxyz23456789@#$';
+                      let pass = 'Assac@';
+                      for (let i = 0; i < 4; i++) {
+                        pass += chars.charAt(Math.floor(Math.random() * chars.length));
+                      }
+                      setCredsForm(prev => ({ ...prev, password: pass }));
+                    }}
+                    className="text-[10px] text-indigo-600 font-bold hover:underline cursor-pointer"
+                  >
+                    Generate Random
+                  </button>
+                </div>
+                <div className="relative">
+                  <input
+                    type={showCredsPassword ? "text" : "password"}
+                    required
+                    placeholder="Enter new password"
+                    value={credsForm.password}
+                    onChange={(e) => setCredsForm({...credsForm, password: e.target.value})}
+                    className="w-full px-3 py-2 pr-14 bg-slate-50 border border-slate-200 rounded-xl text-slate-900 font-mono text-xs font-bold focus:outline-none focus:border-indigo-500"
+                  />
+                  <button
+                    type="button"
+                    onClick={() => setShowCredsPassword(!showCredsPassword)}
+                    className="absolute right-2.5 top-1/2 -translate-y-1/2 text-[10px] text-slate-500 hover:text-slate-800 font-bold"
+                  >
+                    {showCredsPassword ? 'Hide' : 'Show'}
+                  </button>
+                </div>
+              </div>
+
+              <div className="flex justify-end gap-2 pt-2 border-t border-slate-200">
+                <button
+                  type="button"
+                  onClick={() => setShowCredsModal(null)}
+                  className="px-3 py-1.5 rounded-xl bg-slate-100 hover:bg-slate-200 text-slate-700 font-bold cursor-pointer"
+                >
+                  Cancel
+                </button>
+                <button
+                  type="submit"
+                  className="px-3.5 py-1.5 rounded-xl bg-indigo-600 hover:bg-indigo-700 text-white font-extrabold shadow-xs cursor-pointer flex items-center gap-1.5"
+                >
+                  <KeyRound className="h-3.5 w-3.5" />
+                  <span>Update Password</span>
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+
+      {/* Edit Scholar Profile Modal */}
+      {showEditModal && (
+        <div className="fixed inset-0 z-50 bg-slate-900/60 backdrop-blur-sm flex items-center justify-center p-4">
+          <div className="bg-white max-w-xl w-full p-6 rounded-2xl border border-slate-200 space-y-4 shadow-2xl relative text-xs max-h-[90vh] overflow-y-auto animate-fadeIn">
+            <button 
+              onClick={() => setShowEditModal(null)}
+              className="absolute top-4 right-4 text-slate-400 hover:text-slate-600 cursor-pointer"
+            >
+              <X className="h-5 w-5" />
+            </button>
+
+            <div className="flex items-center gap-2 text-slate-900 font-extrabold text-sm border-b border-slate-200 pb-3">
+              <Edit3 className="h-5 w-5 text-indigo-600" />
+              <span>Edit Scholar Record: {showEditModal.name} ({showEditModal.intern_code})</span>
+            </div>
+
+            <form onSubmit={handleEditSubmit} className="space-y-3">
+              <div>
+                <label className="block text-slate-800 font-extrabold mb-1">Scholar Full Name *</label>
+                <input
+                  type="text"
+                  required
+                  value={editForm.name}
+                  onChange={(e) => setEditForm({...editForm, name: e.target.value})}
+                  className="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl text-slate-900 text-xs font-medium focus:outline-none focus:border-indigo-500"
+                />
+              </div>
+
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                <div>
+                  <label className="block text-slate-800 font-extrabold mb-1">College / University *</label>
+                  <input
+                    type="text"
+                    required
+                    value={editForm.university}
+                    onChange={(e) => setEditForm({...editForm, university: e.target.value})}
+                    className="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl text-slate-900 text-xs font-medium focus:outline-none focus:border-indigo-500"
+                  />
+                </div>
+
+                <div>
+                  <label className="block text-slate-800 font-extrabold mb-1">Degree / Specialization</label>
+                  <input
+                    type="text"
+                    value={editForm.degree}
+                    onChange={(e) => setEditForm({...editForm, degree: e.target.value})}
+                    className="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl text-slate-900 text-xs font-medium focus:outline-none focus:border-indigo-500"
+                  />
+                </div>
+              </div>
+
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                <div>
+                  <label className="block text-slate-800 font-extrabold mb-1">Assigned Division</label>
+                  <select
+                    value={editForm.department}
+                    onChange={(e) => setEditForm({...editForm, department: e.target.value})}
+                    className="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl text-slate-900 text-xs font-bold focus:outline-none cursor-pointer"
+                  >
+                    {departmentsList.map(d => (
+                      <option key={d} value={d}>{d}</option>
+                    ))}
+                  </select>
+                </div>
+
+                <div>
+                  <label className="block text-slate-800 font-extrabold mb-1">Supervisor / Mentor</label>
+                  <input
+                    type="text"
+                    value={editForm.mentor}
+                    onChange={(e) => setEditForm({...editForm, mentor: e.target.value})}
+                    className="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl text-slate-900 text-xs font-medium focus:outline-none focus:border-indigo-500"
+                  />
+                </div>
+              </div>
+
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                <div>
+                  <label className="block text-slate-800 font-extrabold mb-1">Official / Academic Email</label>
+                  <input
+                    type="email"
+                    value={editForm.email}
+                    onChange={(e) => setEditForm({...editForm, email: e.target.value})}
+                    className="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl text-slate-900 text-xs font-medium focus:outline-none focus:border-indigo-500"
+                  />
+                </div>
+
+                <div>
+                  <label className="block text-slate-800 font-extrabold mb-1">Status</label>
+                  <select
+                    value={editForm.status}
+                    onChange={(e) => setEditForm({...editForm, status: e.target.value})}
+                    className="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl text-slate-900 text-xs font-bold focus:outline-none cursor-pointer"
+                  >
+                    <option value="Active">Active</option>
+                    <option value="Completed">Completed</option>
+                    <option value="On Leave">On Leave</option>
+                    <option value="Discontinued">Discontinued</option>
+                  </select>
+                </div>
+              </div>
+
+              <div>
+                <label className="block text-slate-800 font-extrabold mb-1">Research Project Topic / Scope</label>
+                <textarea
+                  rows={2}
+                  value={editForm.project_title}
+                  onChange={(e) => setEditForm({...editForm, project_title: e.target.value})}
+                  className="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl text-slate-900 text-xs font-medium focus:outline-none focus:border-indigo-500 resize-none"
+                />
+              </div>
+
+              <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+                <div>
+                  <label className="block text-slate-800 font-extrabold mb-1">Joining Date</label>
+                  <input
+                    type="date"
+                    value={editForm.joining_date}
+                    onChange={(e) => setEditForm({...editForm, joining_date: e.target.value})}
+                    className="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl text-slate-900 text-xs font-medium focus:outline-none focus:border-indigo-500"
+                  />
+                </div>
+
+                <div>
+                  <label className="block text-slate-800 font-extrabold mb-1">Duration (Months)</label>
+                  <input
+                    type="number"
+                    min={1}
+                    max={24}
+                    value={editForm.duration_months}
+                    onChange={(e) => setEditForm({...editForm, duration_months: e.target.value})}
+                    className="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl text-slate-900 text-xs font-medium focus:outline-none focus:border-indigo-500"
+                  />
+                </div>
+
+                <div>
+                  <label className="block text-slate-800 font-extrabold mb-1">Attendance Rate (%)</label>
+                  <input
+                    type="number"
+                    min={0}
+                    max={100}
+                    step="0.1"
+                    value={editForm.attendance_rate}
+                    onChange={(e) => setEditForm({...editForm, attendance_rate: e.target.value})}
+                    className="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl text-slate-900 text-xs font-medium focus:outline-none focus:border-indigo-500"
+                  />
+                </div>
+              </div>
+
+              <div className="flex justify-end gap-2 pt-3 border-t border-slate-200">
+                <button
+                  type="button"
+                  onClick={() => setShowEditModal(null)}
+                  className="px-3 py-1.5 rounded-xl bg-slate-100 hover:bg-slate-200 text-slate-700 font-bold"
+                >
+                  Cancel
+                </button>
+                <button
+                  type="submit"
+                  className="px-4 py-1.5 rounded-xl bg-indigo-600 hover:bg-indigo-700 text-white font-extrabold shadow-xs cursor-pointer flex items-center gap-1.5"
+                >
+                  <Edit3 className="h-3.5 w-3.5" />
+                  <span>Save Changes</span>
                 </button>
               </div>
             </form>

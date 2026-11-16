@@ -71,6 +71,8 @@ router.get('/interns/documents/:id/view', internController.viewDocument);
 router.delete('/interns/documents/:id', internController.deleteDocument);
 router.get('/interns/:id', internController.getInternDetail);
 router.put('/interns/:id', internController.updateIntern);
+router.post('/interns/:id/credentials', internController.manageCredentials);
+router.put('/interns/:id/credentials', internController.manageCredentials);
 router.post('/interns/:id/certificate', internController.issueCertificate);
 router.get('/interns/:id/certificate/pdf', internController.downloadCertificate);
 router.post('/interns/:id/certificate/email', internController.emailCertificate);

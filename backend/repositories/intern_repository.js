@@ -160,18 +160,107 @@ class InternRepository {
       }
     }
 
-    if (fields.length === 0) return await this.getInternById(id);
+    if (fields.length > 0) {
+      params.push(id);
+      const sql = `UPDATE interns SET ${fields.join(', ')} WHERE id = ?`;
+      await db.prepare(sql).run(...params);
+    }
 
-    params.push(id);
-    const sql = `UPDATE interns SET ${fields.join(', ')} WHERE id = ?`;
-    await db.prepare(sql).run(...params);
+    // Sync full_name, email and optional password to associated users table account
+    try {
+      const userAccount = await db.prepare('SELECT id FROM users WHERE intern_id = ?').get(id);
+      if (userAccount) {
+        const userUpdates = [];
+        const userParams = [];
+        if (data.name) {
+          userUpdates.push('full_name = ?');
+          userParams.push(data.name);
+        }
+        if (data.email) {
+          userUpdates.push('email = ?');
+          userParams.push(data.email);
+        }
+        if (data.password && data.password.trim()) {
+          userUpdates.push('password_hash = ?');
+          userParams.push(data.password.trim());
+        }
+        if (userUpdates.length > 0) {
+          userParams.push(userAccount.id);
+          await db.prepare(`UPDATE users SET ${userUpdates.join(', ')} WHERE id = ?`).run(...userParams);
+        }
+      }
+    } catch (err) {
+      console.warn('[InternRepository] Syncing user profile note:', err.message);
+    }
 
     await db.prepare(`
       INSERT INTO audit_logs (user_id, action, details)
       VALUES (?, 'UPDATE_INTERN', ?)
-    `).run(userId, `Updated intern ID ${id}`);
+    `).run(userId, `Updated intern ID ${id} (${data.name || ''})`);
 
     return await this.getInternById(id);
+  }
+
+  /**
+   * Create or Reset portal credentials & password for Intern Scholar
+   */
+  async createOrResetCredentials(internId, { username, password }, userId = 1) {
+    const intern = await this.getInternById(internId);
+    if (!intern) throw new Error('Intern record not found');
+
+    const uname = username ? username.trim() : (intern.user_login || intern.intern_code.toLowerCase());
+    const pass = password ? password.trim() : 'intern123';
+
+    const userAccount = await db.prepare('SELECT id FROM users WHERE intern_id = ?').get(intern.id);
+
+    if (userAccount) {
+      await db.prepare(`
+        UPDATE users 
+        SET username = ?, password_hash = ?, full_name = ?, email = ?, status = 'Active'
+        WHERE id = ?
+      `).run(uname, pass, intern.name, intern.email || `${uname}@assac.internal`, userAccount.id);
+    } else {
+      const permissions = JSON.stringify({
+        ims_access: true,
+        forms_downloads: true
+      });
+      const userRes = await db.prepare(`
+        INSERT INTO users (
+          username, email, password_hash, full_name, designation,
+          role_name, role_id, module_permissions, status, intern_id
+        ) VALUES (?, ?, ?, ?, 'Research Scholar Intern', 'Intern', 5, ?, 'Active', ?)
+      `).run(uname, intern.email || `${uname}@assac.internal`, pass, intern.name, permissions, intern.id);
+
+      const newUserId = userRes ? (userRes.lastID || userRes.id) : null;
+      if (newUserId) {
+        await db.prepare('UPDATE interns SET user_id = ? WHERE id = ?').run(newUserId, intern.id);
+      }
+    }
+
+    // Attempt sending welcome notification email if intern has valid email
+    try {
+      if (intern.email) {
+        await emailService.sendInternWelcomeEmail({
+          to: intern.email,
+          name: intern.name,
+          internCode: intern.intern_code,
+          username: uname,
+          password: pass,
+          mentor: intern.mentor,
+          department: intern.department,
+          projectTitle: intern.project_title
+        });
+      }
+    } catch (e) {
+      console.warn('[InternRepository] Email dispatch note:', e.message);
+    }
+
+    await db.prepare(`
+      INSERT INTO audit_logs (user_id, action, details)
+      VALUES (?, 'RESET_INTERN_PASSWORD', ?)
+    `).run(userId, `Updated credentials/password for intern ${intern.name} (${intern.intern_code}) - login: @${uname}`);
+
+    return await this.getInternById(intern.id);
   }
 
   /**

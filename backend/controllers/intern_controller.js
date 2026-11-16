@@ -66,6 +66,30 @@ class InternController {
     }
   }
 
+  async manageCredentials(req, res) {
+    try {
+      const id = req.params.id;
+      const { username, password } = req.body;
+      if (!password || !password.trim()) {
+        return res.status(400).json({ success: false, error: 'Password is required to set credentials' });
+      }
+
+      const updated = await internRepository.createOrResetCredentials(
+        id,
+        { username, password },
+        req.user ? req.user.id : 1
+      );
+
+      res.json({
+        success: true,
+        message: `Credentials successfully configured for ${updated.name}!`,
+        data: updated
+      });
+    } catch (error) {
+      res.status(500).json({ success: false, error: error.message });
+    }
+  }
+
   async issueCertificate(req, res) {
     try {
       const id = req.params.id;

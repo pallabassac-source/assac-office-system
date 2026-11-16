@@ -39,13 +39,17 @@ A. RUNNING WITH DOCKER (RECOMMENDED FOR EASY MANAGEMENT)
 
 B. RUNNING LOCALLY WITHOUT DOCKER (STANDALONE NODE DEV)
 --------------------------------------------------------------------------------
-1. Start Backend API:
-   cd d:\attendance-system\backend
-   node server.js
+Option 1 - Helper Batch Scripts (Easiest):
+   - Double-click dev-backend.bat   (Runs Node API on port 5000)
+   - Double-click dev-frontend.bat  (Runs Vite dev server on port 5173)
 
-2. Start Frontend UI:
-   cd d:\attendance-system\frontend
-   npm run dev -- --host
+Option 2 - Directly from project root (d:\attendance-system):
+   - npm run dev:backend   (or npm run start:backend)
+   - npm run dev           (or npm run dev:frontend)
+
+Option 3 - In individual subfolders:
+   1. Backend:  cd d:\attendance-system\backend && node server.js
+   2. Frontend: cd d:\attendance-system\frontend && npm run dev -- --host
 
 C. HIGH-CAPACITY STORAGE (/data 1.0TB ON IMS SERVER) & LOCAL NETWORK UPLOADS
 --------------------------------------------------------------------------------

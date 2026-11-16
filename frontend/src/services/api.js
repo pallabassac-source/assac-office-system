@@ -144,6 +144,11 @@ export const updateIntern = async (id, updateData) => {
   return res.data;
 };
 
+export const manageInternCredentials = async (id, credentials) => {
+  const res = await api.post(`/interns/${id}/credentials`, credentials);
+  return res.data;
+};
+
 export const issueInternCertificate = async (id, certificateDate = null) => {
   const res = await api.post(`/interns/${id}/certificate`, { certificateDate });
   return res.data;
