@@ -1,0 +1,20 @@
+{
+  "name": "assac-attendance-system",
+  "version": "1.0.0",
+  "private": true,
+  "description": "ASSAC Intranet Attendance & Governance System",
+  "scripts": {
+    "dev": "npm run dev --prefix frontend",
+    "dev:frontend": "npm run dev --prefix frontend",
+    "dev:backend": "npm run dev --prefix backend",
+    "start": "npm run dev --prefix frontend",
+    "start:backend": "node backend/server.js",
+    "build": "npm run build --prefix frontend",
+    "build:frontend": "npm run build --prefix frontend",
+    "docker:start": "powershell -ExecutionPolicy Bypass -File ./docker-manage.ps1 start",
+    "docker:stop": "powershell -ExecutionPolicy Bypass -File ./docker-manage.ps1 stop",
+    "docker:restart": "powershell -ExecutionPolicy Bypass -File ./docker-manage.ps1 restart",
+    "docker:dev": "powershell -ExecutionPolicy Bypass -File ./docker-manage.ps1 dev",
+    "docker:logs": "powershell -ExecutionPolicy Bypass -File ./docker-manage.ps1 logs"
+  }
+}
