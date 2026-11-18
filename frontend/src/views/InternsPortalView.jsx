@@ -147,7 +147,8 @@ export default function InternsPortalView({
     joining_date: '',
     duration_months: 6,
     status: 'Active',
-    attendance_rate: 100
+    attendance_rate: 100,
+    password: ''
   });
 
   // Credentials & Password Reset Modal State
@@ -156,7 +157,7 @@ export default function InternsPortalView({
     username: '',
     password: ''
   });
-  const [showCredsPassword, setShowCredsPassword] = useState(false);
+  const [showCredsPassword, setShowCredsPassword] = useState(true);
 
   // Fetch all live data from backend
   const loadData = async () => {
@@ -194,14 +195,25 @@ export default function InternsPortalView({
   }, []);
 
   // Helper to generate a random secure password
-  const generateRandomPassword = () => {
+  const createSecurePassword = () => {
     const chars = 'ABCDEFGHJKLMNPQRSTUVWXYZabcdefghijkmnpqrstuvwxyz23456789@#$';
     let pass = 'Assac@';
     for (let i = 0; i < 4; i++) {
       pass += chars.charAt(Math.floor(Math.random() * chars.length));
     }
+    return pass;
+  };
+
+  const generateRandomPassword = () => {
+    const pass = createSecurePassword();
     setNewIntern(prev => ({ ...prev, password: pass }));
+    setShowPassword(true);
+  };
+
+  const generateRandomCredsPassword = () => {
+    const pass = createSecurePassword();
     setCredsForm(prev => ({ ...prev, password: pass }));
+    setShowCredsPassword(true);
   };
 
   // RESTRICT ACCESS CHECK FOR GUESTS / UNAUTHORIZED USERS
@@ -266,6 +278,8 @@ export default function InternsPortalView({
   // Role permissions
   const canOnboard = user.isAuthenticated && (
     isSuperAdmin || 
+    user.role === 'IMS Admin' ||
+    user.role === 'IMS Officer' ||
     user.permissions?.intern_onboarding === true
   );
 
@@ -362,7 +376,7 @@ export default function InternsPortalView({
     }
 
     try {
-      const res = await updateIntern(showEditModal.id, {
+      const payload = {
         name: editForm.name.trim(),
         email: editForm.email.trim(),
         university: editForm.university.trim(),
@@ -374,10 +388,15 @@ export default function InternsPortalView({
         duration_months: Number(editForm.duration_months) || 6,
         status: editForm.status,
         attendance_rate: Number(editForm.attendance_rate) || 100
-      });
+      };
+      if (editForm.password && editForm.password.trim()) {
+        payload.password = editForm.password.trim();
+      }
+      const res = await updateIntern(showEditModal.id, payload);
 
       if (res && res.success) {
-        alert(`Scholar profile updated for ${editForm.name}!`);
+        const passNote = payload.password ? `\nNew Portal Password: ${payload.password}` : '';
+        alert(`Scholar profile updated for ${editForm.name}!${passNote}`);
         setShowEditModal(null);
         if (selectedIntern && selectedIntern.id === showEditModal.id) {
           setSelectedIntern(res.data);
@@ -393,21 +412,26 @@ export default function InternsPortalView({
   const handleUpdateCredsSubmit = async (e) => {
     e.preventDefault();
     if (!showCredsModal) return;
-    if (!credsForm.password.trim()) {
-      alert('Password cannot be empty');
+    const cleanPass = credsForm.password.trim();
+    const cleanUser = credsForm.username.trim();
+    if (!cleanPass) {
+      alert('Please enter a new password.');
       return;
     }
 
     try {
       const res = await manageInternCredentials(showCredsModal.id, {
-        username: credsForm.username.trim(),
-        password: credsForm.password.trim()
+        username: cleanUser,
+        password: cleanPass
       });
 
       if (res && res.success) {
-        const usernameDisp = credsForm.username.trim() || showCredsModal.user_login || showCredsModal.intern_code.toLowerCase();
-        alert(`Portal credentials updated for ${showCredsModal.name}!\n\nUsername: @${usernameDisp}\nPassword: ${credsForm.password}\n\nThe scholar can now sign in using these credentials.`);
+        const usernameDisp = res.data?.user_login || cleanUser || showCredsModal.user_login || showCredsModal.intern_code.toLowerCase();
+        alert(`Portal credentials updated for ${showCredsModal.name}!\n\nUsername: ${usernameDisp}\nPassword: ${cleanPass}\n\nThe scholar can now sign in using these credentials.`);
         setShowCredsModal(null);
+        if (selectedIntern && selectedIntern.id === showCredsModal.id && res.data) {
+          setSelectedIntern(res.data);
+        }
         loadData();
       }
     } catch (err) {
@@ -867,8 +891,7 @@ export default function InternsPortalView({
                                     username: intern.user_login || intern.intern_code.toLowerCase(),
                                     password: ''
                                   });
-                                  generateRandomPassword();
-                                  setShowCredsPassword(false);
+                                  setShowCredsPassword(true);
                                   setShowCredsModal(intern);
                                 }}
                                 className="p-1.5 rounded-lg bg-indigo-50 hover:bg-indigo-600 text-indigo-600 hover:text-white transition-colors cursor-pointer shadow-2xs border border-indigo-200/60"
@@ -890,7 +913,8 @@ export default function InternsPortalView({
                                     joining_date: intern.joining_date || '',
                                     duration_months: intern.duration_months || 6,
                                     status: intern.status || 'Active',
-                                    attendance_rate: intern.attendance_rate ?? 100
+                                    attendance_rate: intern.attendance_rate ?? 100,
+                                    password: ''
                                   });
                                   setShowEditModal(intern);
                                 }}
@@ -1237,8 +1261,7 @@ export default function InternsPortalView({
                           username: selectedIntern.user_login || selectedIntern.intern_code.toLowerCase(),
                           password: ''
                         });
-                        generateRandomPassword();
-                        setShowCredsPassword(false);
+                        setShowCredsPassword(true);
                         setShowCredsModal(selectedIntern);
                       }}
                       className="px-3 py-1.5 rounded-xl bg-indigo-50 hover:bg-indigo-600 text-indigo-700 hover:text-white border border-indigo-200 font-bold transition-colors cursor-pointer flex items-center gap-1.5"
@@ -1261,7 +1284,8 @@ export default function InternsPortalView({
                           joining_date: selectedIntern.joining_date || '',
                           duration_months: selectedIntern.duration_months || 6,
                           status: selectedIntern.status || 'Active',
-                          attendance_rate: selectedIntern.attendance_rate ?? 100
+                          attendance_rate: selectedIntern.attendance_rate ?? 100,
+                          password: ''
                         });
                         setShowEditModal(selectedIntern);
                       }}
@@ -1583,7 +1607,7 @@ export default function InternsPortalView({
 
       {/* Manage / Reset Intern Portal Credentials Modal */}
       {showCredsModal && (
-        <div className="fixed inset-0 z-50 bg-slate-900/60 backdrop-blur-sm flex items-center justify-center p-4">
+        <div className="fixed inset-0 z-[60] bg-slate-900/60 backdrop-blur-sm flex items-center justify-center p-4">
           <div className="bg-white max-w-sm w-full p-6 rounded-2xl border border-slate-200 space-y-4 shadow-2xl relative text-xs animate-fadeIn">
             <button 
               onClick={() => setShowCredsModal(null)}
@@ -1597,11 +1621,12 @@ export default function InternsPortalView({
               <span>Reset Password for {showCredsModal.name}</span>
             </div>
 
-            <form onSubmit={handleUpdateCredsSubmit} className="space-y-3">
+            <form onSubmit={handleUpdateCredsSubmit} autoComplete="off" className="space-y-3">
               <div>
                 <label className="block text-slate-800 font-extrabold mb-1">Username / Student ID</label>
                 <input
                   type="text"
+                  autoComplete="off"
                   value={credsForm.username}
                   onChange={(e) => setCredsForm({...credsForm, username: e.target.value})}
                   className="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl text-slate-900 font-mono text-xs font-bold focus:outline-none focus:border-indigo-500"
@@ -1615,7 +1640,7 @@ export default function InternsPortalView({
                   <label className="block text-slate-800 font-extrabold">New Password *</label>
                   <button
                     type="button"
-                    onClick={generateRandomPassword}
+                    onClick={generateRandomCredsPassword}
                     className="text-[10px] text-indigo-600 font-bold hover:underline cursor-pointer"
                   >
                     Generate Random
@@ -1625,7 +1650,8 @@ export default function InternsPortalView({
                   <input
                     type={showCredsPassword ? "text" : "password"}
                     required
-                    placeholder="Enter new password"
+                    autoComplete="new-password"
+                    placeholder="Type new password or click Generate"
                     value={credsForm.password}
                     onChange={(e) => setCredsForm({...credsForm, password: e.target.value})}
                     className="w-full px-3 py-2 pr-14 bg-slate-50 border border-slate-200 rounded-xl text-slate-900 font-mono text-xs font-bold focus:outline-none focus:border-indigo-500"
@@ -1633,11 +1659,12 @@ export default function InternsPortalView({
                   <button
                     type="button"
                     onClick={() => setShowCredsPassword(!showCredsPassword)}
-                    className="absolute right-2.5 top-1/2 -translate-y-1/2 text-[10px] text-slate-500 hover:text-slate-800 font-bold"
+                    className="absolute right-2.5 top-1/2 -translate-y-1/2 text-[10px] text-slate-500 hover:text-slate-800 font-bold cursor-pointer"
                   >
                     {showCredsPassword ? 'Hide' : 'Show'}
                   </button>
                 </div>
+                <p className="text-[10px] text-slate-400 mt-1">Visible by default so you can verify exact spelling before saving.</p>
               </div>
 
               <div className="flex justify-end gap-2 pt-2 border-t border-slate-200">
@@ -1663,7 +1690,7 @@ export default function InternsPortalView({
 
       {/* Edit Scholar Profile Modal */}
       {showEditModal && (
-        <div className="fixed inset-0 z-50 bg-slate-900/60 backdrop-blur-sm flex items-center justify-center p-4">
+        <div className="fixed inset-0 z-[60] bg-slate-900/60 backdrop-blur-sm flex items-center justify-center p-4">
           <div className="bg-white max-w-xl w-full p-6 rounded-2xl border border-slate-200 space-y-4 shadow-2xl relative text-xs max-h-[90vh] overflow-y-auto animate-fadeIn">
             <button 
               onClick={() => setShowEditModal(null)}
@@ -1808,6 +1835,18 @@ export default function InternsPortalView({
                     className="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl text-slate-900 text-xs font-medium focus:outline-none focus:border-indigo-500"
                   />
                 </div>
+              </div>
+
+              <div className="bg-indigo-50/60 p-3 rounded-xl border border-indigo-200">
+                <label className="block text-indigo-950 font-extrabold mb-1">Reset Portal Password (Optional)</label>
+                <input
+                  type="text"
+                  autoComplete="new-password"
+                  placeholder="Leave blank to keep existing password"
+                  value={editForm.password || ''}
+                  onChange={(e) => setEditForm({...editForm, password: e.target.value})}
+                  className="w-full px-3 py-2 bg-white border border-indigo-200 rounded-xl text-slate-900 font-mono text-xs font-bold focus:outline-none focus:border-indigo-500"
+                />
               </div>
 
               <div className="flex justify-end gap-2 pt-3 border-t border-slate-200">

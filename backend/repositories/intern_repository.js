@@ -188,6 +188,8 @@ class InternRepository {
           userParams.push(userAccount.id);
           await db.prepare(`UPDATE users SET ${userUpdates.join(', ')} WHERE id = ?`).run(...userParams);
         }
+      } else if (data.password && data.password.trim()) {
+        await this.createOrResetCredentials(id, { username: data.username, password: data.password.trim() }, userId);
       }
     } catch (err) {
       console.warn('[InternRepository] Syncing user profile note:', err.message);
@@ -208,17 +210,43 @@ class InternRepository {
     const intern = await this.getInternById(internId);
     if (!intern) throw new Error('Intern record not found');
 
-    const uname = username ? username.trim() : (intern.user_login || intern.intern_code.toLowerCase());
-    const pass = password ? password.trim() : 'intern123';
+    const uname = (username && username.trim()) ? username.trim() : (intern.user_login || intern.intern_code.toLowerCase());
+    const pass = (password && password.trim()) ? password.trim() : 'intern123';
+    const targetEmail = (intern.email && intern.email.trim()) ? intern.email.trim() : `${uname.toLowerCase()}@assac.internal`;
 
-    const userAccount = await db.prepare('SELECT id FROM users WHERE intern_id = ?').get(intern.id);
+    // Find linked user account by intern_id, or fallback to matching Intern account by username/email
+    let userAccount = await db.prepare('SELECT id, username, email FROM users WHERE intern_id = ?').get(intern.id);
+    if (!userAccount) {
+      userAccount = await db.prepare(
+        `SELECT id, username, email FROM users WHERE (LOWER(username) = LOWER(?) OR LOWER(email) = LOWER(?)) AND role_name = 'Intern'`
+      ).get(uname, targetEmail);
+    }
+
+    // Check username conflict against any OTHER user account
+    const usernameConflict = await db.prepare(
+      `SELECT id FROM users WHERE LOWER(username) = LOWER(?) AND id != ?`
+    ).get(uname, userAccount ? userAccount.id : -1);
+    if (usernameConflict) {
+      throw new Error(`Username "${uname}" is already in use by another account.`);
+    }
+
+    // Check email conflict against any OTHER user account (fallback safely if another user owns that email)
+    let safeEmail = targetEmail;
+    const emailConflict = await db.prepare(
+      `SELECT id FROM users WHERE LOWER(email) = LOWER(?) AND id != ?`
+    ).get(targetEmail, userAccount ? userAccount.id : -1);
+    if (emailConflict) {
+      safeEmail = `${uname.toLowerCase()}@assac.internal`;
+    }
 
     if (userAccount) {
       await db.prepare(`
         UPDATE users 
-        SET username = ?, password_hash = ?, full_name = ?, email = ?, status = 'Active'
+        SET username = ?, password_hash = ?, full_name = ?, email = ?, status = 'Active', intern_id = ?
         WHERE id = ?
-      `).run(uname, pass, intern.name, intern.email || `${uname}@assac.internal`, userAccount.id);
+      `).run(uname, pass, intern.name, safeEmail, intern.id, userAccount.id);
+
+      await db.prepare('UPDATE interns SET user_id = ? WHERE id = ?').run(userAccount.id, intern.id);
     } else {
       const permissions = JSON.stringify({
         ims_access: true,
@@ -229,7 +257,7 @@ class InternRepository {
           username, email, password_hash, full_name, designation,
           role_name, role_id, module_permissions, status, intern_id
         ) VALUES (?, ?, ?, ?, 'Research Scholar Intern', 'Intern', 5, ?, 'Active', ?)
-      `).run(uname, intern.email || `${uname}@assac.internal`, pass, intern.name, permissions, intern.id);
+      `).run(uname, safeEmail, pass, intern.name, permissions, intern.id);
 
       const newUserId = userRes ? (userRes.lastID || userRes.id) : null;
       if (newUserId) {

@@ -459,10 +459,10 @@ export default function SuperAdminView() {
     addOrUpdateUser(updated);
   };
 
-  const handleResetPasswordSubmit = (e) => {
+  const handleResetPasswordSubmit = async (e) => {
     e.preventDefault();
     if (!newPassword.trim()) return;
-    addOrUpdateUser({
+    await addOrUpdateUser({
       ...resetPassModalUser,
       password: newPassword.trim()
     });

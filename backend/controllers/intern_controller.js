@@ -15,7 +15,8 @@ class InternController {
       const interns = await internRepository.getInterns({ department, search, status, limit, offset });
       res.json({ success: true, count: interns.length, data: interns });
     } catch (error) {
-      res.status(500).json({ success: false, error: error.message });
+      const status = /not found/i.test(error.message) ? 404 : /already in use/i.test(error.message) ? 400 : 500;
+      res.status(status).json({ success: false, error: error.message });
     }
   }
 
@@ -28,7 +29,8 @@ class InternController {
       }
       res.json({ success: true, data: intern });
     } catch (error) {
-      res.status(500).json({ success: false, error: error.message });
+      const status = /not found/i.test(error.message) ? 404 : /already in use/i.test(error.message) ? 400 : 500;
+      res.status(status).json({ success: false, error: error.message });
     }
   }
 
@@ -51,7 +53,8 @@ class InternController {
         data: newIntern
       });
     } catch (error) {
-      res.status(500).json({ success: false, error: error.message });
+      const status = /not found/i.test(error.message) ? 404 : /already in use/i.test(error.message) ? 400 : 500;
+      res.status(status).json({ success: false, error: error.message });
     }
   }
 
@@ -62,7 +65,8 @@ class InternController {
       const updated = await internRepository.updateIntern(id, updateData, req.user ? req.user.id : 1);
       res.json({ success: true, message: 'Intern record updated successfully', data: updated });
     } catch (error) {
-      res.status(500).json({ success: false, error: error.message });
+      const status = /not found/i.test(error.message) ? 404 : /already in use/i.test(error.message) ? 400 : 500;
+      res.status(status).json({ success: false, error: error.message });
     }
   }
 
@@ -86,7 +90,8 @@ class InternController {
         data: updated
       });
     } catch (error) {
-      res.status(500).json({ success: false, error: error.message });
+      const status = /not found/i.test(error.message) ? 404 : /already in use/i.test(error.message) ? 400 : 500;
+      res.status(status).json({ success: false, error: error.message });
     }
   }
 
@@ -109,7 +114,8 @@ class InternController {
         data: updated
       });
     } catch (error) {
-      res.status(500).json({ success: false, error: error.message });
+      const status = /not found/i.test(error.message) ? 404 : /already in use/i.test(error.message) ? 400 : 500;
+      res.status(status).json({ success: false, error: error.message });
     }
   }
 
@@ -128,7 +134,8 @@ class InternController {
       res.setHeader('Content-Disposition', `inline; filename="${filename}"`);
       res.send(result.pdfBuffer);
     } catch (error) {
-      res.status(500).json({ success: false, error: error.message });
+      const status = /not found/i.test(error.message) ? 404 : /already in use/i.test(error.message) ? 400 : 500;
+      res.status(status).json({ success: false, error: error.message });
     }
   }
 
@@ -143,7 +150,8 @@ class InternController {
         data: result
       });
     } catch (error) {
-      res.status(500).json({ success: false, error: error.message });
+      const status = /not found/i.test(error.message) ? 404 : /already in use/i.test(error.message) ? 400 : 500;
+      res.status(status).json({ success: false, error: error.message });
     }
   }
 
@@ -156,7 +164,8 @@ class InternController {
       }
       res.json({ success: true, message: 'Intern successfully deleted from registry.' });
     } catch (error) {
-      res.status(500).json({ success: false, error: error.message });
+      const status = /not found/i.test(error.message) ? 404 : /already in use/i.test(error.message) ? 400 : 500;
+      res.status(status).json({ success: false, error: error.message });
     }
   }
 
@@ -171,7 +180,8 @@ class InternController {
       const docs = await internRepository.getDocuments({ category, search, internId, limit, offset });
       res.json({ success: true, count: docs.length, data: docs });
     } catch (error) {
-      res.status(500).json({ success: false, error: error.message });
+      const status = /not found/i.test(error.message) ? 404 : /already in use/i.test(error.message) ? 400 : 500;
+      res.status(status).json({ success: false, error: error.message });
     }
   }
 
@@ -288,7 +298,8 @@ class InternController {
       }
       res.json({ success: true, message: 'Document and physical file purged from storage disk' });
     } catch (error) {
-      res.status(500).json({ success: false, error: error.message });
+      const status = /not found/i.test(error.message) ? 404 : /already in use/i.test(error.message) ? 400 : 500;
+      res.status(status).json({ success: false, error: error.message });
     }
   }
 
@@ -302,7 +313,8 @@ class InternController {
         files
       });
     } catch (error) {
-      res.status(500).json({ success: false, error: error.message });
+      const status = /not found/i.test(error.message) ? 404 : /already in use/i.test(error.message) ? 400 : 500;
+      res.status(status).json({ success: false, error: error.message });
     }
   }
 }
